@@ -1,0 +1,15 @@
+export const APP_ROUTES = {
+  login: '/login',
+  dashboard: '/',
+  clients: '/clientes',
+  products: '/productos',
+  orders: '/pedidos',
+  finance: '/finanzas',
+  ledger: '/libro',
+  settings: '/configuracion',
+  categories: '/categorias',
+  ingredients: '/ingredientes',
+  production: '/produccion',
+  recipes: '/recetas',
+  purchases: '/compras',
+} as const;

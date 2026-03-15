@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+:root {
+  font-family: Inter, system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #020617;
+  color: #e2e8f0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@theme {
+  --color-crema: #e9dcc9;
+  --color-bordo: #702a1d;
+  --color-cafe: #4d3227;
+  --color-arena: #d9c5b2;
+  --color-sombra: #cdbba7;
+}
