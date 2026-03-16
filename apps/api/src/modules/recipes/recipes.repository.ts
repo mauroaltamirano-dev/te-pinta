@@ -1,162 +1,176 @@
+import { and, eq } from 'drizzle-orm';
+
+import { db } from '../../db/client';
+import { recipeItemsTable, recipesTable } from '../../db/schema';
 import type {
   CreateRecipeInput,
   CreateRecipeItemInput,
   Recipe,
   RecipeItem,
+  RecipeUnit,
   UpdateRecipeInput,
   UpdateRecipeItemInput,
 } from './recipes.types';
 
-const recipes = new Map<string, Recipe>();
-const recipeItems = new Map<string, RecipeItem>();
-
-function generateRecipeId() {
-  return crypto.randomUUID();
+function mapRowToRecipe(row: typeof recipesTable.$inferSelect): Recipe {
+  return {
+    id: row.id,
+    productId: row.productId,
+    yieldQuantity: row.yieldQuantity,
+    notes: row.notes,
+    isActive: row.isActive,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
-function generateRecipeItemId() {
-  return crypto.randomUUID();
+function mapRowToRecipeItem(row: typeof recipeItemsTable.$inferSelect): RecipeItem {
+  return {
+    id: row.id,
+    recipeId: row.recipeId,
+    ingredientId: row.ingredientId,
+    quantity: row.quantity,
+    unit: row.unit as RecipeUnit,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
 export const recipesRepository = {
-  findAllRecipes(): Recipe[] {
-    return Array.from(recipes.values());
+  async findAllRecipes(): Promise<Recipe[]> {
+    const rows = await db.select().from(recipesTable);
+    return rows.map(mapRowToRecipe);
   },
 
-  findRecipeById(id: string): Recipe | null {
-    return recipes.get(id) ?? null;
+  async findRecipeById(id: string): Promise<Recipe | null> {
+    const [row] = await db
+      .select()
+      .from(recipesTable)
+      .where(eq(recipesTable.id, id));
+
+    return row ? mapRowToRecipe(row) : null;
   },
 
-  findRecipeByProductId(productId: string): Recipe | null {
-    for (const recipe of recipes.values()) {
-      if (recipe.productId === productId && recipe.isActive) {
-        return recipe;
-      }
-    }
+  async findRecipeByProductId(productId: string): Promise<Recipe | null> {
+    const [row] = await db
+      .select()
+      .from(recipesTable)
+      .where(and(eq(recipesTable.productId, productId), eq(recipesTable.isActive, true)));
 
-    return null;
+    return row ? mapRowToRecipe(row) : null;
   },
 
-  createRecipe(input: CreateRecipeInput): Recipe {
-    const now = new Date().toISOString();
+  async createRecipe(input: CreateRecipeInput): Promise<Recipe> {
+    const [row] = await db
+      .insert(recipesTable)
+      .values({
+        productId: input.productId,
+        yieldQuantity: input.yieldQuantity ?? 1,
+        notes: input.notes || null,
+        isActive: true,
+      })
+      .returning();
 
-    const recipe: Recipe = {
-      id: generateRecipeId(),
-      productId: input.productId,
-      yieldQuantity: input.yieldQuantity ?? 1,
-      notes: input.notes || null,
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    recipes.set(recipe.id, recipe);
-
-    return recipe;
+    return mapRowToRecipe(row);
   },
 
-  updateRecipe(id: string, input: UpdateRecipeInput): Recipe | null {
-    const existing = recipes.get(id);
+  async updateRecipe(id: string, input: UpdateRecipeInput): Promise<Recipe | null> {
+    const [row] = await db
+      .update(recipesTable)
+      .set({
+        ...input,
+        updatedAt: new Date(),
+      })
+      .where(eq(recipesTable.id, id))
+      .returning();
 
-    if (!existing) {
-      return null;
-    }
-
-    const updated: Recipe = {
-      ...existing,
-      yieldQuantity: input.yieldQuantity ?? existing.yieldQuantity,
-      notes: input.notes ?? existing.notes,
-      updatedAt: new Date().toISOString(),
-    };
-
-    recipes.set(id, updated);
-
-    return updated;
+    return row ? mapRowToRecipe(row) : null;
   },
 
-  deactivateRecipe(id: string): Recipe | null {
-    const existing = recipes.get(id);
+  async deactivateRecipe(id: string): Promise<Recipe | null> {
+    const [row] = await db
+      .update(recipesTable)
+      .set({
+        isActive: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(recipesTable.id, id))
+      .returning();
 
-    if (!existing) {
-      return null;
-    }
-
-    const updated: Recipe = {
-      ...existing,
-      isActive: false,
-      updatedAt: new Date().toISOString(),
-    };
-
-    recipes.set(id, updated);
-
-    return updated;
+    return row ? mapRowToRecipe(row) : null;
   },
 
-  findItemsByRecipeId(recipeId: string): RecipeItem[] {
-    return Array.from(recipeItems.values()).filter((item) => item.recipeId === recipeId);
+  async findItemsByRecipeId(recipeId: string): Promise<RecipeItem[]> {
+    const rows = await db
+      .select()
+      .from(recipeItemsTable)
+      .where(eq(recipeItemsTable.recipeId, recipeId));
+
+    return rows.map(mapRowToRecipeItem);
   },
 
-  findRecipeItemById(itemId: string): RecipeItem | null {
-    return recipeItems.get(itemId) ?? null;
+  async findRecipeItemById(itemId: string): Promise<RecipeItem | null> {
+    const [row] = await db
+      .select()
+      .from(recipeItemsTable)
+      .where(eq(recipeItemsTable.id, itemId));
+
+    return row ? mapRowToRecipeItem(row) : null;
   },
 
-  findRecipeItemByIngredient(recipeId: string, ingredientId: string): RecipeItem | null {
-    for (const item of recipeItems.values()) {
-      if (item.recipeId === recipeId && item.ingredientId === ingredientId) {
-        return item;
-      }
-    }
+  async findRecipeItemByIngredient(
+    recipeId: string,
+    ingredientId: string,
+  ): Promise<RecipeItem | null> {
+    const [row] = await db
+      .select()
+      .from(recipeItemsTable)
+      .where(
+        and(
+          eq(recipeItemsTable.recipeId, recipeId),
+          eq(recipeItemsTable.ingredientId, ingredientId),
+        ),
+      );
 
-    return null;
+    return row ? mapRowToRecipeItem(row) : null;
   },
 
-  createRecipeItem(recipeId: string, input: CreateRecipeItemInput): RecipeItem {
-    const now = new Date().toISOString();
+  async createRecipeItem(recipeId: string, input: CreateRecipeItemInput): Promise<RecipeItem> {
+    const [row] = await db
+      .insert(recipeItemsTable)
+      .values({
+        recipeId,
+        ingredientId: input.ingredientId,
+        quantity: input.quantity,
+        unit: input.unit,
+      })
+      .returning();
 
-    const item: RecipeItem = {
-      id: generateRecipeItemId(),
-      recipeId,
-      ingredientId: input.ingredientId,
-      quantity: input.quantity,
-      unit: input.unit,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    recipeItems.set(item.id, item);
-
-    return item;
+    return mapRowToRecipeItem(row);
   },
 
-  updateRecipeItem(itemId: string, input: UpdateRecipeItemInput): RecipeItem | null {
-    const existing = recipeItems.get(itemId);
+  async updateRecipeItem(
+    itemId: string,
+    input: UpdateRecipeItemInput,
+  ): Promise<RecipeItem | null> {
+    const [row] = await db
+      .update(recipeItemsTable)
+      .set({
+        ...input,
+        updatedAt: new Date(),
+      })
+      .where(eq(recipeItemsTable.id, itemId))
+      .returning();
 
-    if (!existing) {
-      return null;
-    }
-
-    const updated: RecipeItem = {
-      ...existing,
-      ingredientId: input.ingredientId ?? existing.ingredientId,
-      quantity: input.quantity ?? existing.quantity,
-      unit: input.unit ?? existing.unit,
-      updatedAt: new Date().toISOString(),
-    };
-
-    recipeItems.set(itemId, updated);
-
-    return updated;
+    return row ? mapRowToRecipeItem(row) : null;
   },
 
-  deleteRecipeItem(itemId: string): RecipeItem | null {
-    const existing = recipeItems.get(itemId);
+  async deleteRecipeItem(itemId: string): Promise<RecipeItem | null> {
+    const [row] = await db
+      .delete(recipeItemsTable)
+      .where(eq(recipeItemsTable.id, itemId))
+      .returning();
 
-    if (!existing) {
-      return null;
-    }
-
-    recipeItems.delete(itemId);
-
-    return existing;
+    return row ? mapRowToRecipeItem(row) : null;
   },
 };

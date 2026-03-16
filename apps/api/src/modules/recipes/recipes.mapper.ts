@@ -8,8 +8,8 @@ export const recipesMapper = {
       yieldQuantity: recipe.yieldQuantity,
       notes: recipe.notes,
       isActive: recipe.isActive,
-      createdAt: recipe.createdAt,
-      updatedAt: recipe.updatedAt,
+      createdAt: recipe.createdAt.toISOString(),
+      updatedAt: recipe.updatedAt.toISOString(),
     };
   },
 
@@ -24,8 +24,8 @@ export const recipesMapper = {
       ingredientId: item.ingredientId,
       quantity: item.quantity,
       unit: item.unit,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
+      createdAt: item.createdAt.toISOString(),
+      updatedAt: item.updatedAt.toISOString(),
     };
   },
 

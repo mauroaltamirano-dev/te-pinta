@@ -1,17 +1,17 @@
-import type { z } from 'zod';
+import type { z } from "zod";
 
 import type {
   createCategorySchema,
   updateCategorySchema,
-} from './categories.schema';
+} from "./categories.schema";
 
 export type Category = {
   id: string;
   name: string;
   description: string | null;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;

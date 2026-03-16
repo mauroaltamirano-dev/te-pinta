@@ -1,8 +1,8 @@
-import { ingredientsRepository } from './ingredients.repository';
+import { ingredientsRepository } from "./ingredients.repository";
 import type {
   CreateIngredientInput,
   UpdateIngredientInput,
-} from './ingredients.types';
+} from "./ingredients.types";
 
 type ServiceError = {
   statusCode: number;
@@ -14,43 +14,43 @@ function createServiceError(statusCode: number, message: string): ServiceError {
 }
 
 export const ingredientsService = {
-  getAll() {
-    return ingredientsRepository.findAll();
+  async getAll() {
+    return await ingredientsRepository.findAll();
   },
 
-  getById(id: string) {
-    return ingredientsRepository.findById(id);
+  async getById(id: string) {
+    return await ingredientsRepository.findById(id);
   },
 
-  create(input: CreateIngredientInput) {
-    const existing = ingredientsRepository.findByName(input.name);
+  async create(input: CreateIngredientInput) {
+    const existing = await ingredientsRepository.findByName(input.name);
 
     if (existing) {
-      throw createServiceError(409, 'Ingredient name already exists');
+      throw createServiceError(409, "Ingredient name already exists");
     }
 
-    return ingredientsRepository.create(input);
+    return await ingredientsRepository.create(input);
   },
 
-  update(id: string, input: UpdateIngredientInput) {
-    const existing = ingredientsRepository.findById(id);
+  async update(id: string, input: UpdateIngredientInput) {
+    const existing = await ingredientsRepository.findById(id);
 
     if (!existing) {
       return null;
     }
 
     if (input.name) {
-      const sameName = ingredientsRepository.findByName(input.name);
+      const sameName = await ingredientsRepository.findByName(input.name);
 
       if (sameName && sameName.id !== id) {
-        throw createServiceError(409, 'Ingredient name already exists');
+        throw createServiceError(409, "Ingredient name already exists");
       }
     }
 
-    return ingredientsRepository.update(id, input);
+    return await ingredientsRepository.update(id, input);
   },
 
-  deactivate(id: string) {
-    return ingredientsRepository.deactivate(id);
+  async deactivate(id: string) {
+    return await ingredientsRepository.deactivate(id);
   },
 };

@@ -31,13 +31,13 @@ function isServiceError(
 }
 
 export const recipesController = {
-  getAllRecipes(_request: FastifyRequest, reply: FastifyReply) {
-    const recipes = recipesService.getAllRecipes();
+  async getAllRecipes(_request: FastifyRequest, reply: FastifyReply) {
+    const recipes = await recipesService.getAllRecipes();
 
     return reply.send(recipesMapper.toRecipeListResponse(recipes));
   },
 
-  getRecipeById(
+  async getRecipeById(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
@@ -50,7 +50,7 @@ export const recipesController = {
       });
     }
 
-    const recipe = recipesService.getRecipeById(paramsResult.data.id);
+    const recipe = await recipesService.getRecipeById(paramsResult.data.id);
 
     if (!recipe) {
       return reply.status(404).send({
@@ -61,7 +61,7 @@ export const recipesController = {
     return reply.send(recipesMapper.toRecipeResponse(recipe));
   },
 
-  getRecipeByProductId(
+  async getRecipeByProductId(
     request: FastifyRequest<{ Params: { productId: string } }>,
     reply: FastifyReply,
   ) {
@@ -74,7 +74,7 @@ export const recipesController = {
       });
     }
 
-    const recipe = recipesService.getRecipeByProductId(paramsResult.data.productId);
+    const recipe = await recipesService.getRecipeByProductId(paramsResult.data.productId);
 
     if (!recipe) {
       return reply.status(404).send({
@@ -85,7 +85,7 @@ export const recipesController = {
     return reply.send(recipesMapper.toRecipeResponse(recipe));
   },
 
-  createRecipe(request: FastifyRequest, reply: FastifyReply) {
+  async createRecipe(request: FastifyRequest, reply: FastifyReply) {
     const bodyResult = createRecipeSchema.safeParse(request.body);
 
     if (!bodyResult.success) {
@@ -96,7 +96,7 @@ export const recipesController = {
     }
 
     try {
-      const recipe = recipesService.createRecipe(bodyResult.data);
+      const recipe = await recipesService.createRecipe(bodyResult.data);
 
       return reply.status(201).send(recipesMapper.toRecipeResponse(recipe));
     } catch (error) {
@@ -112,7 +112,7 @@ export const recipesController = {
     }
   },
 
-  updateRecipe(
+  async updateRecipe(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
@@ -134,18 +134,30 @@ export const recipesController = {
       });
     }
 
-    const recipe = recipesService.updateRecipe(paramsResult.data.id, bodyResult.data);
+    try {
+      const recipe = await recipesService.updateRecipe(paramsResult.data.id, bodyResult.data);
 
-    if (!recipe) {
-      return reply.status(404).send({
-        message: 'Recipe not found',
+      if (!recipe) {
+        return reply.status(404).send({
+          message: 'Recipe not found',
+        });
+      }
+
+      return reply.send(recipesMapper.toRecipeResponse(recipe));
+    } catch (error) {
+      if (isServiceError(error)) {
+        return reply.status(error.statusCode).send({
+          message: error.message,
+        });
+      }
+
+      return reply.status(500).send({
+        message: 'Unexpected error',
       });
     }
-
-    return reply.send(recipesMapper.toRecipeResponse(recipe));
   },
 
-  deactivateRecipe(
+  async deactivateRecipe(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
@@ -158,7 +170,7 @@ export const recipesController = {
       });
     }
 
-    const recipe = recipesService.deactivateRecipe(paramsResult.data.id);
+    const recipe = await recipesService.deactivateRecipe(paramsResult.data.id);
 
     if (!recipe) {
       return reply.status(404).send({
@@ -169,7 +181,7 @@ export const recipesController = {
     return reply.send(recipesMapper.toRecipeResponse(recipe));
   },
 
-  getRecipeItems(
+  async getRecipeItems(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
@@ -182,7 +194,7 @@ export const recipesController = {
       });
     }
 
-    const recipe = recipesService.getRecipeById(paramsResult.data.id);
+    const recipe = await recipesService.getRecipeById(paramsResult.data.id);
 
     if (!recipe) {
       return reply.status(404).send({
@@ -190,12 +202,12 @@ export const recipesController = {
       });
     }
 
-    const items = recipesService.getRecipeItems(paramsResult.data.id);
+    const items = await recipesService.getRecipeItems(paramsResult.data.id);
 
     return reply.send(recipesMapper.toRecipeItemListResponse(items));
   },
 
-  createRecipeItem(
+  async createRecipeItem(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
@@ -218,7 +230,7 @@ export const recipesController = {
     }
 
     try {
-      const item = recipesService.createRecipeItem(paramsResult.data.id, bodyResult.data);
+      const item = await recipesService.createRecipeItem(paramsResult.data.id, bodyResult.data);
 
       return reply.status(201).send(recipesMapper.toRecipeItemResponse(item));
     } catch (error) {
@@ -234,7 +246,7 @@ export const recipesController = {
     }
   },
 
-  updateRecipeItem(
+  async updateRecipeItem(
     request: FastifyRequest<{ Params: { id: string; itemId: string } }>,
     reply: FastifyReply,
   ) {
@@ -257,7 +269,7 @@ export const recipesController = {
     }
 
     try {
-      const item = recipesService.updateRecipeItem(
+      const item = await recipesService.updateRecipeItem(
         paramsResult.data.id,
         paramsResult.data.itemId,
         bodyResult.data,
@@ -283,7 +295,7 @@ export const recipesController = {
     }
   },
 
-  deleteRecipeItem(
+  async deleteRecipeItem(
     request: FastifyRequest<{ Params: { id: string; itemId: string } }>,
     reply: FastifyReply,
   ) {
@@ -297,7 +309,7 @@ export const recipesController = {
     }
 
     try {
-      const item = recipesService.deleteRecipeItem(
+      const item = await recipesService.deleteRecipeItem(
         paramsResult.data.id,
         paramsResult.data.itemId,
       );

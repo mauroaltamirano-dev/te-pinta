@@ -6,8 +6,8 @@ export type Recipe = {
   yieldQuantity: number;
   notes: string | null;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type RecipeItem = {
@@ -16,8 +16,8 @@ export type RecipeItem = {
   ingredientId: string;
   quantity: number;
   unit: RecipeUnit;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type CreateRecipeInput = {

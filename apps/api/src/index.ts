@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { env } from './config/env';
 import { buildServer } from './app/server/build-server';
 

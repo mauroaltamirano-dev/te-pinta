@@ -4,6 +4,8 @@ import { recipesRepository } from './recipes.repository';
 import type {
   CreateRecipeInput,
   CreateRecipeItemInput,
+  Recipe,
+  RecipeItem,
   UpdateRecipeInput,
   UpdateRecipeItemInput,
 } from './recipes.types';
@@ -30,60 +32,60 @@ function areUnitsCompatible(ingredientUnit: string, recipeUnit: string) {
 }
 
 export const recipesService = {
-  getAllRecipes() {
-    return recipesRepository.findAllRecipes();
+  async getAllRecipes(): Promise<Recipe[]> {
+    return await recipesRepository.findAllRecipes();
   },
 
-  getRecipeById(id: string) {
-    return recipesRepository.findRecipeById(id);
+  async getRecipeById(id: string): Promise<Recipe | null> {
+    return await recipesRepository.findRecipeById(id);
   },
 
-  getRecipeByProductId(productId: string) {
-    return recipesRepository.findRecipeByProductId(productId);
+  async getRecipeByProductId(productId: string): Promise<Recipe | null> {
+    return await recipesRepository.findRecipeByProductId(productId);
   },
 
-  createRecipe(input: CreateRecipeInput) {
-    const product = productsRepository.findById(input.productId);
+  async createRecipe(input: CreateRecipeInput): Promise<Recipe> {
+    const product = await productsRepository.findById(input.productId);
 
     if (!product) {
       throw createServiceError(400, 'Product does not exist');
     }
 
-    const existingRecipe = recipesRepository.findRecipeByProductId(input.productId);
+    const existingRecipe = await recipesRepository.findRecipeByProductId(input.productId);
 
     if (existingRecipe) {
       throw createServiceError(409, 'Product already has an active recipe');
     }
 
-    return recipesRepository.createRecipe(input);
+    return await recipesRepository.createRecipe(input);
   },
 
-  updateRecipe(id: string, input: UpdateRecipeInput) {
-    const existingRecipe = recipesRepository.findRecipeById(id);
+  async updateRecipe(id: string, input: UpdateRecipeInput): Promise<Recipe | null> {
+    const existingRecipe = await recipesRepository.findRecipeById(id);
 
     if (!existingRecipe) {
       return null;
     }
 
-    return recipesRepository.updateRecipe(id, input);
+    return await recipesRepository.updateRecipe(id, input);
   },
 
-  deactivateRecipe(id: string) {
-    return recipesRepository.deactivateRecipe(id);
+  async deactivateRecipe(id: string): Promise<Recipe | null> {
+    return await recipesRepository.deactivateRecipe(id);
   },
 
-  getRecipeItems(recipeId: string) {
-    return recipesRepository.findItemsByRecipeId(recipeId);
+  async getRecipeItems(recipeId: string): Promise<RecipeItem[]> {
+    return await recipesRepository.findItemsByRecipeId(recipeId);
   },
 
-  createRecipeItem(recipeId: string, input: CreateRecipeItemInput) {
-    const recipe = recipesRepository.findRecipeById(recipeId);
+  async createRecipeItem(recipeId: string, input: CreateRecipeItemInput): Promise<RecipeItem> {
+    const recipe = await recipesRepository.findRecipeById(recipeId);
 
     if (!recipe || !recipe.isActive) {
       throw createServiceError(404, 'Recipe not found');
     }
 
-    const ingredient = ingredientsRepository.findById(input.ingredientId);
+    const ingredient = await ingredientsRepository.findById(input.ingredientId);
 
     if (!ingredient) {
       throw createServiceError(400, 'Ingredient does not exist');
@@ -96,7 +98,7 @@ export const recipesService = {
       );
     }
 
-    const existingItem = recipesRepository.findRecipeItemByIngredient(
+    const existingItem = await recipesRepository.findRecipeItemByIngredient(
       recipeId,
       input.ingredientId,
     );
@@ -105,21 +107,21 @@ export const recipesService = {
       throw createServiceError(409, 'Ingredient already exists in this recipe');
     }
 
-    return recipesRepository.createRecipeItem(recipeId, input);
+    return await recipesRepository.createRecipeItem(recipeId, input);
   },
 
-  updateRecipeItem(
+  async updateRecipeItem(
     recipeId: string,
     itemId: string,
     input: UpdateRecipeItemInput,
-  ) {
-    const recipe = recipesRepository.findRecipeById(recipeId);
+  ): Promise<RecipeItem | null> {
+    const recipe = await recipesRepository.findRecipeById(recipeId);
 
     if (!recipe || !recipe.isActive) {
       throw createServiceError(404, 'Recipe not found');
     }
 
-    const existingItem = recipesRepository.findRecipeItemById(itemId);
+    const existingItem = await recipesRepository.findRecipeItemById(itemId);
 
     if (!existingItem || existingItem.recipeId !== recipeId) {
       return null;
@@ -128,7 +130,7 @@ export const recipesService = {
     const nextIngredientId = input.ingredientId ?? existingItem.ingredientId;
     const nextUnit = input.unit ?? existingItem.unit;
 
-    const ingredient = ingredientsRepository.findById(nextIngredientId);
+    const ingredient = await ingredientsRepository.findById(nextIngredientId);
 
     if (!ingredient) {
       throw createServiceError(400, 'Ingredient does not exist');
@@ -141,7 +143,7 @@ export const recipesService = {
       );
     }
 
-    const duplicatedItem = recipesRepository.findRecipeItemByIngredient(
+    const duplicatedItem = await recipesRepository.findRecipeItemByIngredient(
       recipeId,
       nextIngredientId,
     );
@@ -150,22 +152,22 @@ export const recipesService = {
       throw createServiceError(409, 'Ingredient already exists in this recipe');
     }
 
-    return recipesRepository.updateRecipeItem(itemId, input);
+    return await recipesRepository.updateRecipeItem(itemId, input);
   },
 
-  deleteRecipeItem(recipeId: string, itemId: string) {
-    const recipe = recipesRepository.findRecipeById(recipeId);
+  async deleteRecipeItem(recipeId: string, itemId: string): Promise<RecipeItem | null> {
+    const recipe = await recipesRepository.findRecipeById(recipeId);
 
     if (!recipe || !recipe.isActive) {
       throw createServiceError(404, 'Recipe not found');
     }
 
-    const existingItem = recipesRepository.findRecipeItemById(itemId);
+    const existingItem = await recipesRepository.findRecipeItemById(itemId);
 
     if (!existingItem || existingItem.recipeId !== recipeId) {
       return null;
     }
 
-    return recipesRepository.deleteRecipeItem(itemId);
+    return await recipesRepository.deleteRecipeItem(itemId);
   },
 };

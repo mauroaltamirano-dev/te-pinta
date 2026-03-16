@@ -1,10 +1,12 @@
-import { categoriesRepository } from '../categories/categories.repository';
-import { productsRepository } from './products.repository';
+import { categoriesRepository } from "../categories/categories.repository";
+import {
+  productsRepository,
+  type ProductWithCategory,
+} from "./products.repository";
 import type {
   CreateProductInput,
-  ProductKind,
   UpdateProductInput,
-} from './products.types';
+} from "./products.types";
 
 type ServiceError = {
   statusCode: number;
@@ -15,133 +17,65 @@ function createServiceError(statusCode: number, message: string): ServiceError {
   return { statusCode, message };
 }
 
-function normalizePreparedFields<T extends CreateProductInput | UpdateProductInput>(
-  kind: ProductKind,
-  input: T,
-): T {
-  if (kind === 'prepared') {
-    return {
-      ...input,
-      directCost: undefined,
-    };
-  }
-
-  return {
-    ...input,
-    halfDozenPrice: undefined,
-    dozenPrice: undefined,
-  };
-}
-
-function validateProductRules(
-  kind: ProductKind,
-  input: CreateProductInput | UpdateProductInput,
-) {
-  if (kind === 'prepared') {
-    if (input.directCost !== undefined && input.directCost !== null) {
-      throw createServiceError(
-        400,
-        'Prepared products must not have direct cost',
-      );
-    }
-
-    return;
-  }
-
-  if (input.directCost === undefined || input.directCost === null) {
-    throw createServiceError(
-      400,
-      'Direct cost is required for resale and combo products',
-    );
-  }
-
-  if (
-    (input.halfDozenPrice !== undefined && input.halfDozenPrice !== null) ||
-    (input.dozenPrice !== undefined && input.dozenPrice !== null)
-  ) {
-    throw createServiceError(
-      400,
-      'Half dozen and dozen prices only apply to prepared products',
-    );
-  }
-}
-
 export const productsService = {
-  getAll() {
-    return productsRepository.findAll();
+  async getAll(): Promise<ProductWithCategory[]> {
+    return await productsRepository.findAll();
   },
 
-  getById(id: string) {
-    return productsRepository.findById(id);
+  async getById(id: string): Promise<ProductWithCategory | null> {
+    return await productsRepository.findById(id);
   },
 
-  create(input: CreateProductInput) {
-    const category = categoriesRepository.findById(input.categoryId);
+  async create(input: CreateProductInput): Promise<ProductWithCategory> {
+    const category = await categoriesRepository.findById(input.categoryId);
 
     if (!category) {
-      throw createServiceError(400, 'Category does not exist');
+      throw createServiceError(400, "Category does not exist");
     }
 
-    const existingProduct = productsRepository.findByName(input.name);
+    const existing = await productsRepository.findByName(input.name);
 
-    if (existingProduct) {
-      throw createServiceError(409, 'Product name already exists');
+    if (existing) {
+      throw createServiceError(409, "Product name already exists");
     }
 
-    validateProductRules(input.kind, input);
-
-    const normalizedInput = normalizePreparedFields(input.kind, input);
-
-    return productsRepository.create(normalizedInput);
+    return await productsRepository.create(input);
   },
 
-  update(id: string, input: UpdateProductInput) {
-    const existing = productsRepository.findById(id);
+  async update(
+    id: string,
+    input: UpdateProductInput,
+  ): Promise<ProductWithCategory | null> {
+    const existing = await productsRepository.findById(id);
 
     if (!existing) {
       return null;
     }
 
     if (input.categoryId) {
-      const category = categoriesRepository.findById(input.categoryId);
+      const category = await categoriesRepository.findById(input.categoryId);
 
       if (!category) {
-        throw createServiceError(400, 'Category does not exist');
+        throw createServiceError(400, "Category does not exist");
       }
     }
 
     if (input.name) {
-      const sameName = productsRepository.findByName(input.name);
+      const sameName = await productsRepository.findByName(input.name);
 
       if (sameName && sameName.id !== id) {
-        throw createServiceError(409, 'Product name already exists');
+        throw createServiceError(409, "Product name already exists");
       }
     }
 
-    const nextKind = input.kind ?? existing.kind;
-    // Strip nulls from `existing` so the merged object is compatible with
-    // CreateProductInput | UpdateProductInput, which use `undefined` (not `null`)
-    // for absent optional fields (Zod's .optional() produces T | undefined).
-    const existingWithoutNulls = Object.fromEntries(
-      Object.entries(existing).filter(([, v]) => v !== null),
-    ) as UpdateProductInput;
-    const mergedInput = {
-      ...existingWithoutNulls,
-      ...input,
-    };
-
-    validateProductRules(nextKind, mergedInput);
-
-    const normalizedInput = normalizePreparedFields(nextKind, input);
-
-    return productsRepository.update(id, normalizedInput);
+    return await productsRepository.update(id, input);
   },
 
-  deactivate(id: string) {
-    return productsRepository.deactivate(id);
+  async deactivate(id: string): Promise<ProductWithCategory | null> {
+    return await productsRepository.deactivate(id);
   },
 
-  reactivate(id: string) {
-    return productsRepository.reactivate(id);
+  async reactivate(id: string): Promise<ProductWithCategory | null> {
+    return await productsRepository.reactivate(id);
   },
 };

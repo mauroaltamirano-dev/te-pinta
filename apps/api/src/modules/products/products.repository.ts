@@ -1,122 +1,208 @@
+import { eq, ilike } from "drizzle-orm";
+
+import { db } from "../../db/client";
+import { categoriesTable, productsTable } from "../../db/schema";
 import type {
   CreateProductInput,
   Product,
+  ProductKind,
   UpdateProductInput,
-} from './products.types';
+} from "./products.types";
 
-const products = new Map<string, Product>();
+export type ProductWithCategory = {
+  product: Product;
+  categoryName: string | null;
+};
 
-function generateProductId() {
-  return crypto.randomUUID();
+function mapRowToProduct(row: typeof productsTable.$inferSelect): Product {
+  return {
+    id: row.id,
+    categoryId: row.categoryId,
+    name: row.name,
+    description: row.description,
+    kind: row.kind as ProductKind,
+    unitPrice: row.unitPrice,
+    halfDozenPrice: row.halfDozenPrice,
+    dozenPrice: row.dozenPrice,
+    directCost: row.directCost,
+    isActive: row.isActive,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
-function normalizeName(name: string) {
-  return name.trim().toLowerCase();
+function mapJoinedRow(row: {
+  products: typeof productsTable.$inferSelect;
+  categories: typeof categoriesTable.$inferSelect | null;
+}): ProductWithCategory {
+  return {
+    product: mapRowToProduct(row.products),
+    categoryName: row.categories?.name ?? null,
+  };
 }
 
 export const productsRepository = {
-  findAll(): Product[] {
-    return Array.from(products.values());
+  async findAll(): Promise<ProductWithCategory[]> {
+    const rows = await db
+      .select()
+      .from(productsTable)
+      .leftJoin(categoriesTable, eq(productsTable.categoryId, categoriesTable.id));
+
+    return rows.map(mapJoinedRow);
   },
 
-  findById(id: string): Product | null {
-    return products.get(id) ?? null;
+  async findById(id: string): Promise<ProductWithCategory | null> {
+    const [row] = await db
+      .select()
+      .from(productsTable)
+      .leftJoin(categoriesTable, eq(productsTable.categoryId, categoriesTable.id))
+      .where(eq(productsTable.id, id));
+
+    return row ? mapJoinedRow(row) : null;
   },
 
-  findByName(name: string): Product | null {
-    const normalized = normalizeName(name);
+  async findByName(name: string): Promise<Product | null> {
+    const normalizedName = name.trim();
 
-    for (const product of products.values()) {
-      if (normalizeName(product.name) === normalized) {
-        return product;
-      }
-    }
+    const [row] = await db
+      .select()
+      .from(productsTable)
+      .where(ilike(productsTable.name, normalizedName));
 
-    return null;
+    return row ? mapRowToProduct(row) : null;
   },
 
-  create(input: CreateProductInput): Product {
-    const now = new Date().toISOString();
+  async create(input: CreateProductInput): Promise<ProductWithCategory> {
+    const [row] = await db
+      .insert(productsTable)
+      .values({
+        categoryId: input.categoryId,
+        name: input.name.trim(),
+        description: input.description?.trim() || null,
+        kind: input.kind,
+        unitPrice: input.unitPrice,
+        halfDozenPrice: input.halfDozenPrice ?? null,
+        dozenPrice: input.dozenPrice ?? null,
+        directCost: input.directCost ?? null,
+        isActive: true,
+      })
+      .returning();
 
-    const product: Product = {
-      id: generateProductId(),
-      categoryId: input.categoryId,
-      name: input.name,
-      description: input.description || null,
-      kind: input.kind,
-      unitPrice: input.unitPrice,
-      halfDozenPrice: input.halfDozenPrice ?? null,
-      dozenPrice: input.dozenPrice ?? null,
-      directCost: input.directCost ?? null,
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
+    const [joinedRow] = await db
+      .select()
+      .from(productsTable)
+      .leftJoin(categoriesTable, eq(productsTable.categoryId, categoriesTable.id))
+      .where(eq(productsTable.id, row.id));
+
+    return mapJoinedRow(joinedRow);
+  },
+
+  async update(
+    id: string,
+    input: UpdateProductInput,
+  ): Promise<ProductWithCategory | null> {
+    const values: Partial<typeof productsTable.$inferInsert> = {
+      updatedAt: new Date(),
     };
 
-    products.set(product.id, product);
+    if (input.categoryId !== undefined) {
+      values.categoryId = input.categoryId;
+    }
 
-    return product;
-  },
+    if (input.name !== undefined) {
+      values.name = input.name.trim();
+    }
 
-  update(id: string, input: UpdateProductInput): Product | null {
-    const existing = products.get(id);
+    if (input.description !== undefined) {
+      values.description = input.description.trim() || null;
+    }
 
-    if (!existing) {
+    if (input.kind !== undefined) {
+      values.kind = input.kind;
+    }
+
+    if (input.unitPrice !== undefined) {
+      values.unitPrice = input.unitPrice;
+    }
+
+    if (input.halfDozenPrice !== undefined) {
+      values.halfDozenPrice = input.halfDozenPrice ?? null;
+    }
+
+    if (input.dozenPrice !== undefined) {
+      values.dozenPrice = input.dozenPrice ?? null;
+    }
+
+    if (input.directCost !== undefined) {
+      values.directCost = input.directCost ?? null;
+    }
+
+    if (input.isActive !== undefined) {
+      values.isActive = input.isActive;
+    }
+
+    const [row] = await db
+      .update(productsTable)
+      .set(values)
+      .where(eq(productsTable.id, id))
+      .returning();
+
+    if (!row) {
       return null;
     }
 
-    const updated: Product = {
-      ...existing,
-      categoryId: input.categoryId ?? existing.categoryId,
-      name: input.name ?? existing.name,
-      description: input.description ?? existing.description,
-      kind: input.kind ?? existing.kind,
-      unitPrice: input.unitPrice ?? existing.unitPrice,
-      halfDozenPrice: input.halfDozenPrice ?? existing.halfDozenPrice,
-      dozenPrice: input.dozenPrice ?? existing.dozenPrice,
-      directCost: input.directCost ?? existing.directCost,
-      isActive: input.isActive ?? existing.isActive,
-      updatedAt: new Date().toISOString(),
-    };
+    const [joinedRow] = await db
+      .select()
+      .from(productsTable)
+      .leftJoin(categoriesTable, eq(productsTable.categoryId, categoriesTable.id))
+      .where(eq(productsTable.id, row.id));
 
-    products.set(id, updated);
-
-    return updated;
+    return joinedRow ? mapJoinedRow(joinedRow) : null;
   },
 
-  deactivate(id: string): Product | null {
-    const existing = products.get(id);
+  async deactivate(id: string): Promise<ProductWithCategory | null> {
+    const [row] = await db
+      .update(productsTable)
+      .set({
+        isActive: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(productsTable.id, id))
+      .returning();
 
-    if (!existing) {
+    if (!row) {
       return null;
     }
 
-    const updated: Product = {
-      ...existing,
-      isActive: false,
-      updatedAt: new Date().toISOString(),
-    };
+    const [joinedRow] = await db
+      .select()
+      .from(productsTable)
+      .leftJoin(categoriesTable, eq(productsTable.categoryId, categoriesTable.id))
+      .where(eq(productsTable.id, row.id));
 
-    products.set(id, updated);
-
-    return updated;
+    return joinedRow ? mapJoinedRow(joinedRow) : null;
   },
 
-  reactivate(id: string): Product | null {
-    const existing = products.get(id);
+  async reactivate(id: string): Promise<ProductWithCategory | null> {
+    const [row] = await db
+      .update(productsTable)
+      .set({
+        isActive: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(productsTable.id, id))
+      .returning();
 
-    if (!existing) {
+    if (!row) {
       return null;
     }
 
-    const updated: Product = {
-      ...existing,
-      isActive: true,
-      updatedAt: new Date().toISOString(),
-    };
+    const [joinedRow] = await db
+      .select()
+      .from(productsTable)
+      .leftJoin(categoriesTable, eq(productsTable.categoryId, categoriesTable.id))
+      .where(eq(productsTable.id, row.id));
 
-    products.set(id, updated);
-
-    return updated;
+    return joinedRow ? mapJoinedRow(joinedRow) : null;
   },
 };

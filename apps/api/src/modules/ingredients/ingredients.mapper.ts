@@ -1,4 +1,4 @@
-import type { Ingredient } from './ingredients.types';
+import type { Ingredient } from "./ingredients.types";
 
 export const ingredientsMapper = {
   toResponse(ingredient: Ingredient) {
@@ -9,8 +9,8 @@ export const ingredientsMapper = {
       unit: ingredient.unit,
       currentCost: ingredient.currentCost,
       isActive: ingredient.isActive,
-      createdAt: ingredient.createdAt,
-      updatedAt: ingredient.updatedAt,
+      createdAt: ingredient.createdAt.toISOString(),
+      updatedAt: ingredient.updatedAt.toISOString(),
     };
   },
 

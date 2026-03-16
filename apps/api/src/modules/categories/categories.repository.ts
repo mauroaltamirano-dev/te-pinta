@@ -1,92 +1,99 @@
+import { eq, ilike } from "drizzle-orm";
+
+import { db } from "../../db/client";
+import { categoriesTable } from "../../db/schema";
 import type {
   Category,
   CreateCategoryInput,
   UpdateCategoryInput,
-} from './categories.types';
+} from "./categories.types";
 
-const categories = new Map<string, Category>();
-
-function generateCategoryId() {
-  return crypto.randomUUID();
-}
-
-function normalizeCategoryName(name: string) {
-  return name.trim().toLowerCase();
+function mapRowToCategory(row: typeof categoriesTable.$inferSelect): Category {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    isActive: row.isActive,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
 export const categoriesRepository = {
-  findAll(): Category[] {
-    return Array.from(categories.values());
+  async findAll(): Promise<Category[]> {
+    const rows = await db.select().from(categoriesTable);
+
+    return rows.map(mapRowToCategory);
   },
 
-  findById(id: string): Category | null {
-    return categories.get(id) ?? null;
+  async findById(id: string): Promise<Category | null> {
+    const [row] = await db
+      .select()
+      .from(categoriesTable)
+      .where(eq(categoriesTable.id, id));
+
+    return row ? mapRowToCategory(row) : null;
   },
 
-  findByName(name: string): Category | null {
-    const normalizedName = normalizeCategoryName(name);
+  async findByName(name: string): Promise<Category | null> {
+    const normalizedName = name.trim();
 
-    for (const category of categories.values()) {
-      if (normalizeCategoryName(category.name) === normalizedName) {
-        return category;
-      }
-    }
+    const [row] = await db
+      .select()
+      .from(categoriesTable)
+      .where(ilike(categoriesTable.name, normalizedName));
 
-    return null;
+    return row ? mapRowToCategory(row) : null;
   },
 
-  create(input: CreateCategoryInput): Category {
-    const now = new Date().toISOString();
+  async create(input: CreateCategoryInput): Promise<Category> {
+    const [row] = await db
+      .insert(categoriesTable)
+      .values({
+        name: input.name.trim(),
+        description: input.description?.trim() || null,
+        isActive: true,
+      })
+      .returning();
 
-    const category: Category = {
-      id: generateCategoryId(),
-      name: input.name,
-      description: input.description || null,
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
+    return mapRowToCategory(row);
+  },
+
+  async update(
+    id: string,
+    input: UpdateCategoryInput,
+  ): Promise<Category | null> {
+    const values: Partial<typeof categoriesTable.$inferInsert> = {
+      updatedAt: new Date(),
     };
 
-    categories.set(category.id, category);
-
-    return category;
-  },
-
-  update(id: string, input: UpdateCategoryInput): Category | null {
-    const existingCategory = categories.get(id);
-
-    if (!existingCategory) {
-      return null;
+    if (input.name !== undefined) {
+      values.name = input.name.trim();
     }
 
-    const updatedCategory: Category = {
-      ...existingCategory,
-      name: input.name ?? existingCategory.name,
-      description:
-        input.description ?? existingCategory.description,
-      updatedAt: new Date().toISOString(),
-    };
-
-    categories.set(id, updatedCategory);
-
-    return updatedCategory;
-  },
-
-  deactivate(id: string): Category | null {
-    const existingCategory = categories.get(id);
-
-    if (!existingCategory) {
-      return null;
+    if (input.description !== undefined) {
+      values.description = input.description.trim() || null;
     }
 
-    const updatedCategory: Category = {
-      ...existingCategory,
-      isActive: false,
-      updatedAt: new Date().toISOString(),
-    };
+    const [row] = await db
+      .update(categoriesTable)
+      .set(values)
+      .where(eq(categoriesTable.id, id))
+      .returning();
 
-    categories.set(id, updatedCategory);
+    return row ? mapRowToCategory(row) : null;
+  },
 
-    return updatedCategory;
+  async deactivate(id: string): Promise<Category | null> {
+    const [row] = await db
+      .update(categoriesTable)
+      .set({
+        isActive: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(categoriesTable.id, id))
+      .returning();
+
+    return row ? mapRowToCategory(row) : null;
   },
 };

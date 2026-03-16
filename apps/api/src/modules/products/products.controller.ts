@@ -1,16 +1,16 @@
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from "fastify";
 
-import { productsMapper } from './products.mapper';
+import { productsMapper } from "./products.mapper";
 import {
-  productIdParamsSchema,
   createProductSchema,
+  productIdParamsSchema,
   updateProductSchema,
-} from './products.schema';
-import { productsService } from './products.service';
+} from "./products.schema";
+import { productsService } from "./products.service";
 
 function formatZodIssues(issues: Array<{ path: PropertyKey[]; message: string }>) {
   return issues.map((issue) => ({
-    field: issue.path.join('.'),
+    field: issue.path.join("."),
     message: issue.message,
   }));
 }
@@ -19,21 +19,25 @@ function isServiceError(
   error: unknown,
 ): error is { statusCode: number; message: string } {
   return (
-    typeof error === 'object' &&
+    typeof error === "object" &&
     error !== null &&
-    'statusCode' in error &&
-    'message' in error
+    "statusCode" in error &&
+    "message" in error
   );
 }
 
 export const productsController = {
-  getAll(_request: FastifyRequest, reply: FastifyReply) {
-    const products = productsService.getAll();
+  async getAll(_request: FastifyRequest, reply: FastifyReply) {
+    const items = await productsService.getAll();
 
-    return reply.send(productsMapper.toResponseList(products));
+    return reply.send(
+      items.map((item) =>
+        productsMapper.toResponse(item.product, item.categoryName),
+      ),
+    );
   },
 
-  getById(
+  async getById(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
@@ -41,36 +45,40 @@ export const productsController = {
 
     if (!paramsResult.success) {
       return reply.status(400).send({
-        message: 'Invalid route params',
+        message: "Invalid route params",
         issues: formatZodIssues(paramsResult.error.issues),
       });
     }
 
-    const product = productsService.getById(paramsResult.data.id);
+    const item = await productsService.getById(paramsResult.data.id);
 
-    if (!product) {
+    if (!item) {
       return reply.status(404).send({
-        message: 'Product not found',
+        message: "Product not found",
       });
     }
 
-    return reply.send(productsMapper.toResponse(product));
+    return reply.send(
+      productsMapper.toResponse(item.product, item.categoryName),
+    );
   },
 
-  create(request: FastifyRequest, reply: FastifyReply) {
+  async create(request: FastifyRequest, reply: FastifyReply) {
     const bodyResult = createProductSchema.safeParse(request.body);
 
     if (!bodyResult.success) {
       return reply.status(400).send({
-        message: 'Invalid request body',
+        message: "Invalid request body",
         issues: formatZodIssues(bodyResult.error.issues),
       });
     }
 
     try {
-      const product = productsService.create(bodyResult.data);
+      const item = await productsService.create(bodyResult.data);
 
-      return reply.status(201).send(productsMapper.toResponse(product));
+      return reply
+        .status(201)
+        .send(productsMapper.toResponse(item.product, item.categoryName));
     } catch (error) {
       if (isServiceError(error)) {
         return reply.status(error.statusCode).send({
@@ -79,12 +87,12 @@ export const productsController = {
       }
 
       return reply.status(500).send({
-        message: 'Unexpected error',
+        message: "Unexpected error",
       });
     }
   },
 
-  update(
+  async update(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
@@ -92,7 +100,7 @@ export const productsController = {
 
     if (!paramsResult.success) {
       return reply.status(400).send({
-        message: 'Invalid route params',
+        message: "Invalid route params",
         issues: formatZodIssues(paramsResult.error.issues),
       });
     }
@@ -101,24 +109,26 @@ export const productsController = {
 
     if (!bodyResult.success) {
       return reply.status(400).send({
-        message: 'Invalid request body',
+        message: "Invalid request body",
         issues: formatZodIssues(bodyResult.error.issues),
       });
     }
 
     try {
-      const product = productsService.update(
+      const item = await productsService.update(
         paramsResult.data.id,
         bodyResult.data,
       );
 
-      if (!product) {
+      if (!item) {
         return reply.status(404).send({
-          message: 'Product not found',
+          message: "Product not found",
         });
       }
 
-      return reply.send(productsMapper.toResponse(product));
+      return reply.send(
+        productsMapper.toResponse(item.product, item.categoryName),
+      );
     } catch (error) {
       if (isServiceError(error)) {
         return reply.status(error.statusCode).send({
@@ -127,12 +137,12 @@ export const productsController = {
       }
 
       return reply.status(500).send({
-        message: 'Unexpected error',
+        message: "Unexpected error",
       });
     }
   },
 
-  deactivate(
+  async deactivate(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
@@ -140,23 +150,25 @@ export const productsController = {
 
     if (!paramsResult.success) {
       return reply.status(400).send({
-        message: 'Invalid route params',
+        message: "Invalid route params",
         issues: formatZodIssues(paramsResult.error.issues),
       });
     }
 
-    const product = productsService.deactivate(paramsResult.data.id);
+    const item = await productsService.deactivate(paramsResult.data.id);
 
-    if (!product) {
+    if (!item) {
       return reply.status(404).send({
-        message: 'Product not found',
+        message: "Product not found",
       });
     }
 
-    return reply.send(productsMapper.toResponse(product));
+    return reply.send(
+      productsMapper.toResponse(item.product, item.categoryName),
+    );
   },
 
-  reactivate(
+  async reactivate(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
@@ -164,19 +176,21 @@ export const productsController = {
 
     if (!paramsResult.success) {
       return reply.status(400).send({
-        message: 'Invalid route params',
+        message: "Invalid route params",
         issues: formatZodIssues(paramsResult.error.issues),
       });
     }
 
-    const product = productsService.reactivate(paramsResult.data.id);
+    const item = await productsService.reactivate(paramsResult.data.id);
 
-    if (!product) {
+    if (!item) {
       return reply.status(404).send({
-        message: 'Product not found',
+        message: "Product not found",
       });
     }
 
-    return reply.send(productsMapper.toResponse(product));
+    return reply.send(
+      productsMapper.toResponse(item.product, item.categoryName),
+    );
   },
 };

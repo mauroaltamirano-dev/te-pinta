@@ -19,8 +19,8 @@ export type Product = {
   dozenPrice: number | null;
   directCost: number | null;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type ProductResponse = {

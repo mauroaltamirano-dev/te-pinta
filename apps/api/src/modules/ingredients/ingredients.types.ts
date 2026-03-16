@@ -1,10 +1,10 @@
-import type { z } from 'zod';
+import type { z } from "zod";
 
 import type {
   createIngredientSchema,
   updateIngredientSchema,
   ingredientUnitSchema,
-} from './ingredients.schema';
+} from "./ingredients.schema";
 
 export type IngredientUnit = z.infer<typeof ingredientUnitSchema>;
 
@@ -15,8 +15,8 @@ export type Ingredient = {
   unit: IngredientUnit;
   currentCost: number;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type CreateIngredientInput = z.infer<typeof createIngredientSchema>;

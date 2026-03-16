@@ -1,4 +1,4 @@
-import type { Category } from './categories.types';
+import type { Category } from "./categories.types";
 
 export const categoriesMapper = {
   toResponse(category: Category) {
@@ -7,8 +7,8 @@ export const categoriesMapper = {
       name: category.name,
       description: category.description,
       isActive: category.isActive,
-      createdAt: category.createdAt,
-      updatedAt: category.updatedAt,
+      createdAt: category.createdAt.toISOString(),
+      updatedAt: category.updatedAt.toISOString(),
     };
   },
 

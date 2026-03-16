@@ -1,95 +1,114 @@
+import { eq, ilike } from "drizzle-orm";
+
+import { db } from "../../db/client";
+import { ingredientsTable } from "../../db/schema";
 import type {
   Ingredient,
   CreateIngredientInput,
   UpdateIngredientInput,
-} from './ingredients.types';
+  IngredientUnit,
+} from "./ingredients.types";
 
-const ingredients = new Map<string, Ingredient>();
-
-function generateIngredientId() {
-  return crypto.randomUUID();
-}
-
-function normalizeName(name: string) {
-  return name.trim().toLowerCase();
+function mapRowToIngredient(
+  row: typeof ingredientsTable.$inferSelect,
+): Ingredient {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    unit: row.unit as IngredientUnit,
+    currentCost: row.currentCost,
+    isActive: row.isActive,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
 export const ingredientsRepository = {
-  findAll(): Ingredient[] {
-    return Array.from(ingredients.values());
+  async findAll(): Promise<Ingredient[]> {
+    const rows = await db.select().from(ingredientsTable);
+
+    return rows.map(mapRowToIngredient);
   },
 
-  findById(id: string): Ingredient | null {
-    return ingredients.get(id) ?? null;
+  async findById(id: string): Promise<Ingredient | null> {
+    const [row] = await db
+      .select()
+      .from(ingredientsTable)
+      .where(eq(ingredientsTable.id, id));
+
+    return row ? mapRowToIngredient(row) : null;
   },
 
-  findByName(name: string): Ingredient | null {
-    const normalized = normalizeName(name);
+  async findByName(name: string): Promise<Ingredient | null> {
+    const normalizedName = name.trim();
 
-    for (const ingredient of ingredients.values()) {
-      if (normalizeName(ingredient.name) === normalized) {
-        return ingredient;
-      }
-    }
+    const [row] = await db
+      .select()
+      .from(ingredientsTable)
+      .where(ilike(ingredientsTable.name, normalizedName));
 
-    return null;
+    return row ? mapRowToIngredient(row) : null;
   },
 
-  create(input: CreateIngredientInput): Ingredient {
-    const now = new Date().toISOString();
+  async create(input: CreateIngredientInput): Promise<Ingredient> {
+    const [row] = await db
+      .insert(ingredientsTable)
+      .values({
+        name: input.name.trim(),
+        description: input.description?.trim() || null,
+        unit: input.unit,
+        currentCost: input.currentCost,
+        isActive: true,
+      })
+      .returning();
 
-    const ingredient: Ingredient = {
-      id: generateIngredientId(),
-      name: input.name,
-      description: input.description || null,
-      unit: input.unit,
-      currentCost: input.currentCost,
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
+    return mapRowToIngredient(row);
+  },
+
+  async update(
+    id: string,
+    input: UpdateIngredientInput,
+  ): Promise<Ingredient | null> {
+    const values: Partial<typeof ingredientsTable.$inferInsert> = {
+      updatedAt: new Date(),
     };
 
-    ingredients.set(ingredient.id, ingredient);
-
-    return ingredient;
-  },
-
-  update(id: string, input: UpdateIngredientInput): Ingredient | null {
-    const existing = ingredients.get(id);
-
-    if (!existing) {
-      return null;
+    if (input.name !== undefined) {
+      values.name = input.name.trim();
     }
 
-    const updated: Ingredient = {
-      ...existing,
-      name: input.name ?? existing.name,
-      description: input.description ?? existing.description,
-      unit: input.unit ?? existing.unit,
-      currentCost: input.currentCost ?? existing.currentCost,
-      updatedAt: new Date().toISOString(),
-    };
-
-    ingredients.set(id, updated);
-
-    return updated;
-  },
-
-  deactivate(id: string): Ingredient | null {
-    const existing = ingredients.get(id);
-
-    if (!existing) {
-      return null;
+    if (input.description !== undefined) {
+      values.description = input.description.trim() || null;
     }
 
-    const updated: Ingredient = {
-      ...existing,
-      isActive: false,
-      updatedAt: new Date().toISOString(),
-    };
+    if (input.unit !== undefined) {
+      values.unit = input.unit;
+    }
 
-    ingredients.set(id, updated);
+    if (input.currentCost !== undefined) {
+      values.currentCost = input.currentCost;
+    }
 
-    return updated;
+    const [row] = await db
+      .update(ingredientsTable)
+      .set(values)
+      .where(eq(ingredientsTable.id, id))
+      .returning();
+
+    return row ? mapRowToIngredient(row) : null;
+  },
+
+  async deactivate(id: string): Promise<Ingredient | null> {
+    const [row] = await db
+      .update(ingredientsTable)
+      .set({
+        isActive: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(ingredientsTable.id, id))
+      .returning();
+
+    return row ? mapRowToIngredient(row) : null;
   },
 };

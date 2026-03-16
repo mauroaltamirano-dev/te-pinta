@@ -1,8 +1,8 @@
-import { categoriesRepository } from './categories.repository';
+import { categoriesRepository } from "./categories.repository";
 import type {
   CreateCategoryInput,
   UpdateCategoryInput,
-} from './categories.types';
+} from "./categories.types";
 
 type ServiceError = {
   statusCode: number;
@@ -14,43 +14,45 @@ function createServiceError(statusCode: number, message: string): ServiceError {
 }
 
 export const categoriesService = {
-  getAll() {
-    return categoriesRepository.findAll();
+  async getAll() {
+    return await categoriesRepository.findAll();
   },
 
-  getById(id: string) {
-    return categoriesRepository.findById(id);
+  async getById(id: string) {
+    return await categoriesRepository.findById(id);
   },
 
-  create(input: CreateCategoryInput) {
-    const existingCategory = categoriesRepository.findByName(input.name);
+  async create(input: CreateCategoryInput) {
+    const existingCategory = await categoriesRepository.findByName(input.name);
 
     if (existingCategory) {
-      throw createServiceError(409, 'Category name already exists');
+      throw createServiceError(409, "Category name already exists");
     }
 
-    return categoriesRepository.create(input);
+    return await categoriesRepository.create(input);
   },
 
-  update(id: string, input: UpdateCategoryInput) {
-    const existingCategory = categoriesRepository.findById(id);
+  async update(id: string, input: UpdateCategoryInput) {
+    const existingCategory = await categoriesRepository.findById(id);
 
     if (!existingCategory) {
       return null;
     }
 
     if (input.name) {
-      const categoryWithSameName = categoriesRepository.findByName(input.name);
+      const categoryWithSameName = await categoriesRepository.findByName(
+        input.name,
+      );
 
       if (categoryWithSameName && categoryWithSameName.id !== id) {
-        throw createServiceError(409, 'Category name already exists');
+        throw createServiceError(409, "Category name already exists");
       }
     }
 
-    return categoriesRepository.update(id, input);
+    return await categoriesRepository.update(id, input);
   },
 
-  deactivate(id: string) {
-    return categoriesRepository.deactivate(id);
+  async deactivate(id: string) {
+    return await categoriesRepository.deactivate(id);
   },
 };

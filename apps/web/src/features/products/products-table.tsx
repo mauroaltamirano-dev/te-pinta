@@ -6,6 +6,8 @@ import {
   useProducts,
   useReactivateProduct,
 } from "./use-products";
+import { MdEdit, MdDelete } from "react-icons/md";
+
 
 type ProductsTableProps = {
   selectedProductId?: string | null;
@@ -235,13 +237,13 @@ export function ProductsTable({
                     </td>
 
                     <td className="border-b border-sombra px-5 py-4">
-                      <div className="flex min-w-[190px] flex-col gap-2">
+                      <div className="flex flex-col gap-2">
                         <button
                           type="button"
                           onClick={() => onEditProduct(product.id)}
-                          className="rounded-2xl border border-sombra bg-arena px-3 py-2 text-sm font-semibold text-cafe transition hover:bg-sombra/60"
+                          className="rounded-2xl m-auto border border-sombra bg-arena px-3 py-2 text-sm font-semibold text-cafe transition hover:bg-sombra/60"
                         >
-                          Editar producto
+                          <MdEdit />
                         </button>
 
                         {product.isActive ? (
@@ -257,9 +259,9 @@ export function ProductsTable({
                               deactivateMutation.mutate(product.id);
                             }}
                             disabled={deactivateMutation.isPending}
-                            className="rounded-2xl bg-bordo px-3 py-2 text-sm font-semibold text-crema transition hover:bg-cafe disabled:cursor-not-allowed disabled:opacity-50"
+                            className="rounded-2xl m-auto bg-bordo px-3 py-2 text-sm font-semibold text-crema transition hover:bg-cafe disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            Desactivar producto
+                            <MdDelete />
                           </button>
                         ) : (
                           <button

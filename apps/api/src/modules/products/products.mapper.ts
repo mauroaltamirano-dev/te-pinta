@@ -1,16 +1,11 @@
-import { categoriesRepository } from '../categories/categories.repository';
-import type { Product, ProductResponse } from './products.types';
-
-function resolveCategoryName(categoryId: string) {
-  return categoriesRepository.findById(categoryId)?.name ?? null;
-}
+import type { Product, ProductResponse } from "./products.types";
 
 export const productsMapper = {
-  toResponse(product: Product): ProductResponse {
+  toResponse(product: Product, categoryName: string | null = null): ProductResponse {
     return {
       id: product.id,
       categoryId: product.categoryId,
-      categoryName: resolveCategoryName(product.categoryId),
+      categoryName,
       name: product.name,
       description: product.description,
       kind: product.kind,
@@ -19,12 +14,12 @@ export const productsMapper = {
       dozenPrice: product.dozenPrice,
       directCost: product.directCost,
       isActive: product.isActive,
-      createdAt: product.createdAt,
-      updatedAt: product.updatedAt,
+      createdAt: product.createdAt.toISOString(),
+      updatedAt: product.updatedAt.toISOString(),
     };
   },
 
-  toResponseList(products: Product[]) {
+  toResponseList(products: Product[]): ProductResponse[] {
     return products.map((product) => this.toResponse(product));
   },
 };
