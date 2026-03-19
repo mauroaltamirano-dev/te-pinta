@@ -6,6 +6,10 @@ import {
   getOrders,
   getOrdersSummary,
   updateOrderStatus,
+  updateOrder,
+  deactivateOrder,
+  reactivateOrder,
+  hardDeleteOrder,
 } from '../../services/api/orders.api';
 
 export function useOrders() {
@@ -67,6 +71,64 @@ export function useUpdateOrderStatus() {
     },
     onError: (error) => {
       console.error('Failed to update order status:', error);
+    },
+  });
+}
+
+export function useUpdateOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      orderId,
+      data,
+    }: {
+      orderId: string;
+      data: Parameters<typeof updateOrder>[1];
+    }) => updateOrder(orderId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['order', variables.orderId] });
+      queryClient.invalidateQueries({ queryKey: ['orders-summary'] });
+    },
+  });
+}
+
+export function useDeactivateOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deactivateOrder,
+    onSuccess: (_, orderId) => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['order', orderId] });
+      queryClient.invalidateQueries({ queryKey: ['orders-summary'] });
+    },
+  });
+}
+
+export function useReactivateOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: reactivateOrder,
+    onSuccess: (_, orderId) => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['order', orderId] });
+      queryClient.invalidateQueries({ queryKey: ['orders-summary'] });
+    },
+  });
+}
+
+export function useHardDeleteOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: hardDeleteOrder,
+    onSuccess: (_, orderId) => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.removeQueries({ queryKey: ['order', orderId] });
+      queryClient.invalidateQueries({ queryKey: ['orders-summary'] });
     },
   });
 }

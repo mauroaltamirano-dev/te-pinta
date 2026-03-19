@@ -1,19 +1,23 @@
-import type { Order, OrderItem } from './orders.types';
+import type { Order, OrderItem } from "./orders.types";
 
 export const ordersMapper = {
   toOrderResponse(order: Order) {
     return {
       id: order.id,
       clientId: order.clientId,
+      customerNameSnapshot: order.customerNameSnapshot,
       status: order.status,
       channel: order.channel,
+      deliveryDate: order.deliveryDate?.toISOString() ?? null,
+      paymentMethod: order.paymentMethod,
+      isPaid: order.isPaid,
       notes: order.notes,
       subtotalAmount: order.subtotalAmount,
       discountAmount: order.discountAmount,
       totalAmount: order.totalAmount,
       isActive: order.isActive,
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt,
+      createdAt: order.createdAt.toISOString(),
+      updatedAt: order.updatedAt.toISOString(),
     };
   },
 
@@ -27,8 +31,8 @@ export const ordersMapper = {
       unitSalePriceSnapshot: item.unitSalePriceSnapshot,
       unitCostSnapshot: item.unitCostSnapshot,
       lineSubtotal: item.lineSubtotal,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
+      createdAt: item.createdAt.toISOString(),
+      updatedAt: item.updatedAt.toISOString(),
     };
   },
 

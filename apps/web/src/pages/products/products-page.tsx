@@ -6,48 +6,61 @@ import { ProductsTable } from "../../features/products/products-table";
 import { useProducts } from "../../features/products/use-products";
 
 export function ProductsPage() {
-  const { data: products } = useProducts();
+  const { data: products } = useProducts({ includeInactive: true });
   const [selectedProductId, setSelectedProductId] = useState<string | null>(
     null,
   );
 
   const selectedProduct = useMemo<Product | null>(() => {
     if (!products || !selectedProductId) return null;
-
-    return products.find((product) => product.id === selectedProductId) ?? null;
+    return products.find((p) => p.id === selectedProductId) ?? null;
   }, [products, selectedProductId]);
 
+  const handleCancelEdit = () => setSelectedProductId(null);
+
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <section className="rounded-3xl border border-sombra bg-arena px-6 py-6 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-cafe/70">
+    <div className="mx-auto max-w-7xl space-y-5 px-4 py-6 md:px-6">
+      {/* ── Header ─────────────────────────────────────────── */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted">
           Catálogo
         </p>
+        <h1 className="mt-1 text-2xl font-bold text-strong">Productos</h1>
+      </div>
 
-        <h1 className="mt-2 text-3xl font-bold text-bordo">Productos</h1>
-
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-cafe/85">
-          Registrá y administrá los productos que vende el negocio. Definí su
-          categoría, tipo, precios de venta y, cuando corresponda, el costo
-          directo para mantener un control claro y ordenado.
-        </p>
-      </section>
-
-      <section className="grid gap-6 grid-cols-1">
-        <div>
-          <ProductForm
-            product={selectedProduct}
-            onCancelEdit={() => setSelectedProductId(null)}
-          />
+      {/* ── Banner edición ──────────────────────────────────── */}
+      {selectedProduct && (
+        <div
+          className="flex items-center justify-between rounded-xl border px-4 py-3 text-sm animate-slide-up"
+          style={{
+            background: "var(--warning-soft)",
+            borderColor: "var(--warning)",
+            color: "var(--warning-text)",
+          }}
+        >
+          <span>
+            ✏️ Editando:{" "}
+            <strong className="font-semibold">{selectedProduct.name}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={handleCancelEdit}
+            className="ml-4 rounded-lg px-3 py-1 text-xs font-semibold transition"
+            style={{ background: "var(--warning)", color: "#fff" }}
+          >
+            Cancelar
+          </button>
         </div>
+      )}
 
-        <div>
-          <ProductsTable
-            selectedProductId={selectedProductId}
-            onEditProduct={setSelectedProductId}
-          />
-        </div>
-      </section>
+      {/* ── Form ───────────────────────────────────────────── */}
+      <ProductForm product={selectedProduct} onCancelEdit={handleCancelEdit} />
+
+      {/* ── Tabla ───────────────────────────────────────────── */}
+      <ProductsTable
+        selectedProductId={selectedProductId}
+        onEditProduct={setSelectedProductId}
+      />
     </div>
   );
 }

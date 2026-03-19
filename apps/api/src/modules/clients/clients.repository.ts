@@ -1,81 +1,91 @@
-import type {
-  Client,
-  CreateClientInput,
-  UpdateClientInput,
-} from './clients.types';
+import { eq, ilike } from 'drizzle-orm';
 
-const clients = new Map<string, Client>();
+import { db } from '../../db/client';
+import { clientsTable } from '../../db/schema';
+import type { Client, CreateClientInput, UpdateClientInput } from './clients.types';
 
-function generateClientId() {
-  return crypto.randomUUID();
+function mapRowToClient(row: typeof clientsTable.$inferSelect): Client {
+  return {
+    id:        row.id,
+    name:      row.name,
+    phone:     row.phone,
+    address:   row.address,
+    notes:     row.notes,
+    isActive:  row.isActive,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
 export const clientsRepository = {
-  findAll(): Client[] {
-    return Array.from(clients.values());
+  async findAll(options?: { includeInactive?: boolean }): Promise<Client[]> {
+    const rows = await db.select().from(clientsTable);
+    if (options?.includeInactive) return rows.map(mapRowToClient);
+    return rows.filter((r) => r.isActive).map(mapRowToClient);
   },
 
-  findById(id: string): Client | null {
-    return clients.get(id) ?? null;
+  async findById(id: string): Promise<Client | null> {
+    const [row] = await db
+      .select()
+      .from(clientsTable)
+      .where(eq(clientsTable.id, id));
+    return row ? mapRowToClient(row) : null;
   },
 
-  create(input: CreateClientInput): Client {
-    const now = new Date().toISOString();
+  async findByName(name: string): Promise<Client | null> {
+    const [row] = await db
+      .select()
+      .from(clientsTable)
+      .where(ilike(clientsTable.name, name.trim()));
+    return row ? mapRowToClient(row) : null;
+  },
 
-    const client: Client = {
-      id: generateClientId(),
-      name: input.name,
-      phone: input.phone,
-      email: input.email || null,
-      address: input.address || null,
-      notes: input.notes || null,
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
+  async create(input: CreateClientInput): Promise<Client> {
+    const [row] = await db
+      .insert(clientsTable)
+      .values({
+        name:     input.name.trim(),
+        phone:    input.phone?.trim() || null,
+        address:  input.address?.trim() || null,
+        notes:    input.notes?.trim() || null,
+        isActive: true,
+      })
+      .returning();
+    return mapRowToClient(row);
+  },
+
+  async update(id: string, input: UpdateClientInput): Promise<Client | null> {
+    const values: Partial<typeof clientsTable.$inferInsert> = {
+      updatedAt: new Date(),
     };
+    if (input.name    !== undefined) values.name    = input.name.trim();
+    if (input.phone   !== undefined) values.phone   = input.phone.trim() || null;
+    if (input.address !== undefined) values.address = input.address.trim() || null;
+    if (input.notes   !== undefined) values.notes   = input.notes.trim() || null;
 
-    clients.set(client.id, client);
-
-    return client;
+    const [row] = await db
+      .update(clientsTable)
+      .set(values)
+      .where(eq(clientsTable.id, id))
+      .returning();
+    return row ? mapRowToClient(row) : null;
   },
 
-  update(id: string, input: UpdateClientInput): Client | null {
-    const existingClient = clients.get(id);
-
-    if (!existingClient) {
-      return null;
-    }
-
-    const updatedClient: Client = {
-      ...existingClient,
-      name: input.name ?? existingClient.name,
-      phone: input.phone ?? existingClient.phone,
-      email: input.email === '' ? null : (input.email ?? existingClient.email),
-      address: input.address ?? existingClient.address,
-      notes: input.notes ?? existingClient.notes,
-      updatedAt: new Date().toISOString(),
-    };
-
-    clients.set(id, updatedClient);
-
-    return updatedClient;
+  async deactivate(id: string): Promise<Client | null> {
+    const [row] = await db
+      .update(clientsTable)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(clientsTable.id, id))
+      .returning();
+    return row ? mapRowToClient(row) : null;
   },
 
-  deactivate(id: string): Client | null {
-    const existingClient = clients.get(id);
-
-    if (!existingClient) {
-      return null;
-    }
-
-    const updatedClient: Client = {
-      ...existingClient,
-      isActive: false,
-      updatedAt: new Date().toISOString(),
-    };
-
-    clients.set(id, updatedClient);
-
-    return updatedClient;
+  async reactivate(id: string): Promise<Client | null> {
+    const [row] = await db
+      .update(clientsTable)
+      .set({ isActive: true, updatedAt: new Date() })
+      .where(eq(clientsTable.id, id))
+      .returning();
+    return row ? mapRowToClient(row) : null;
   },
 };

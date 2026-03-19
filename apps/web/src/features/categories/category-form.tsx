@@ -1,88 +1,260 @@
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { MdClose } from "react-icons/md";
 
-import { useCreateCategory } from "./use-categories";
+import type { Category } from "../../services/api/categories.api";
+import { useCreateCategory, useUpdateCategory } from "./use-categories";
 
 type FormData = {
   name: string;
   description?: string;
 };
 
-export function CategoryForm() {
-  const { register, handleSubmit, reset } = useForm<FormData>();
-  const mutation = useCreateCategory();
+type CategoryFormProps = {
+  category?: Category | null;
+  onCancelEdit?: () => void;
+};
+
+export function CategoryForm({ category, onCancelEdit }: CategoryFormProps) {
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<FormData>({
+    defaultValues: {
+      name: category?.name ?? "",
+      description: category?.description ?? "",
+    },
+  });
+
+  const createMutation = useCreateCategory();
+  const updateMutation = useUpdateCategory();
+
+  const isEditing = !!category;
+  const isPending = createMutation.isPending || updateMutation.isPending;
+  const isError = createMutation.isError || updateMutation.isError;
+  const isSuccess = createMutation.isSuccess || updateMutation.isSuccess;
+
+  const errorMessage =
+    createMutation.error instanceof Error
+      ? createMutation.error.message
+      : updateMutation.error instanceof Error
+        ? updateMutation.error.message
+        : isEditing
+          ? "Error al editar la categoría."
+          : "Error al crear la categoría.";
+
+  useEffect(() => {
+    reset({
+      name: category?.name ?? "",
+      description: category?.description ?? "",
+    });
+  }, [category, reset]);
 
   const onSubmit = (data: FormData) => {
-    mutation.mutate(data, {
-      onSuccess: () => reset(),
-    });
+    if (isEditing) {
+      updateMutation.mutate({ id: category.id, data });
+    } else {
+      createMutation.mutate(data, { onSuccess: () => reset() });
+    }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
-      className="space-y-5 rounded-3xl border border-sombra bg-crema p-5 shadow-sm"
+    <div
+      className="overflow-hidden rounded-2xl border transition-all"
+      style={{
+        background: "var(--surface)",
+        borderColor: isEditing ? "var(--warning)" : "var(--border)",
+        boxShadow: isEditing
+          ? "0 0 0 3px var(--warning-soft)"
+          : "var(--shadow-sm)",
+      }}
     >
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cafe/65">
-          Nueva categoría
-        </p>
-        <h2 className="mt-2 text-xl font-bold text-bordo">Crear categoría</h2>
-        <p className="mt-2 text-sm leading-6 text-cafe/80">
-          Registrá una nueva categoría para clasificar mejor tus productos.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <label
-          htmlFor="category-name"
-          className="text-sm font-medium text-cafe"
-        >
-          Nombre
-        </label>
-        <input
-          id="category-name"
-          {...register("name")}
-          placeholder="Ej: Empanadas clásicas"
-          className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition placeholder:text-cafe/45 focus:border-bordo"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label
-          htmlFor="category-description"
-          className="text-sm font-medium text-cafe"
-        >
-          Descripción
-        </label>
-        <input
-          id="category-description"
-          {...register("description")}
-          placeholder="Ej: Variedades tradicionales del menú"
-          className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition placeholder:text-cafe/45 focus:border-bordo"
-        />
-      </div>
-
-      <button
-        type="submit"
-        className="w-full rounded-2xl bg-bordo px-4 py-3 text-sm font-semibold text-crema transition hover:bg-cafe disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={mutation.isPending}
+      {/* ── Header del form ─────────────────────────────────── */}
+      <div
+        className="flex items-center justify-between border-b px-5 py-4"
+        style={{
+          borderColor: isEditing ? "var(--warning)" : "var(--border-soft)",
+          background: isEditing ? "var(--warning-soft)" : "var(--surface-2)",
+        }}
       >
-        {mutation.isPending ? "Creando categoría..." : "Guardar categoría"}
-      </button>
-
-      {mutation.isError ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {mutation.error instanceof Error
-            ? mutation.error.message
-            : "Ocurrió un error al crear la categoría"}
+        <div>
+          <p
+            className="text-xs font-semibold uppercase tracking-widest"
+            style={{
+              color: isEditing
+                ? "var(--warning-text)"
+                : "var(--foreground-muted)",
+            }}
+          >
+            {isEditing ? "Editando" : "Nueva categoría"}
+          </p>
+          <h2
+            className="mt-0.5 text-base font-bold"
+            style={{
+              color: isEditing ? "var(--warning-text)" : "var(--foreground)",
+            }}
+          >
+            {isEditing ? category.name : "Crear categoría"}
+          </h2>
         </div>
-      ) : null}
 
-      {mutation.isSuccess ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          Categoría creada correctamente.
+        {isEditing && (
+          <button
+            type="button"
+            onClick={onCancelEdit}
+            className="rounded-lg p-1.5 transition"
+            style={{ color: "var(--warning-text)" }}
+            title="Cancelar edición"
+          >
+            <MdClose size={18} />
+          </button>
+        )}
+      </div>
+
+      {/* ── Campos ──────────────────────────────────────────── */}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-5">
+        {/* Nombre */}
+        <div className="space-y-1.5">
+          <label
+            htmlFor="cat-name"
+            className="text-sm font-medium"
+            style={{ color: "var(--foreground-soft)" }}
+          >
+            Nombre <span style={{ color: "var(--danger)" }}>*</span>
+          </label>
+          <input
+            id="cat-name"
+            {...register("name", { required: "El nombre es obligatorio" })}
+            placeholder="Ej: Empanadas clásicas"
+            className="w-full rounded-xl border px-4 py-2.5 text-sm outline-none transition"
+            style={{
+              background: "var(--background)",
+              borderColor: errors.name ? "var(--danger)" : "var(--border)",
+              color: "var(--foreground)",
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = isEditing
+                ? "var(--warning)"
+                : "var(--primary)";
+              e.target.style.boxShadow = `0 0 0 3px ${isEditing ? "var(--warning-soft)" : "var(--ring)"}`;
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = errors.name
+                ? "var(--danger)"
+                : "var(--border)";
+              e.target.style.boxShadow = "none";
+            }}
+          />
+          {errors.name && (
+            <p className="text-xs" style={{ color: "var(--danger-text)" }}>
+              {errors.name.message}
+            </p>
+          )}
         </div>
-      ) : null}
-    </form>
+
+        {/* Descripción */}
+        <div className="space-y-1.5">
+          <label
+            htmlFor="cat-desc"
+            className="text-sm font-medium"
+            style={{ color: "var(--foreground-soft)" }}
+          >
+            Descripción{" "}
+            <span
+              className="text-xs font-normal"
+              style={{ color: "var(--foreground-muted)" }}
+            >
+              (opcional)
+            </span>
+          </label>
+          <input
+            id="cat-desc"
+            {...register("description")}
+            placeholder="Ej: Variedades tradicionales del menú"
+            className="w-full rounded-xl border px-4 py-2.5 text-sm outline-none transition"
+            style={{
+              background: "var(--background)",
+              borderColor: "var(--border)",
+              color: "var(--foreground)",
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = isEditing
+                ? "var(--warning)"
+                : "var(--primary)";
+              e.target.style.boxShadow = `0 0 0 3px ${isEditing ? "var(--warning-soft)" : "var(--ring)"}`;
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = "var(--border)";
+              e.target.style.boxShadow = "none";
+            }}
+          />
+        </div>
+
+        {/* Feedback */}
+        {isError && (
+          <div
+            className="rounded-xl border px-4 py-3 text-sm animate-fade-in"
+            style={{
+              background: "var(--danger-soft)",
+              borderColor: "var(--danger)",
+              color: "var(--danger-text)",
+            }}
+          >
+            {errorMessage}
+          </div>
+        )}
+        {isSuccess && (
+          <div
+            className="rounded-xl border px-4 py-3 text-sm animate-fade-in"
+            style={{
+              background: "var(--success-soft)",
+              borderColor: "var(--success)",
+              color: "var(--success-text)",
+            }}
+          >
+            {isEditing
+              ? "Categoría actualizada correctamente."
+              : "Categoría creada correctamente."}
+          </div>
+        )}
+
+        {/* Acciones */}
+        <div className="flex gap-2 pt-1">
+          {isEditing && (
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition"
+              style={{
+                borderColor: "var(--border)",
+                color: "var(--foreground-muted)",
+                background: "transparent",
+              }}
+            >
+              Cancelar
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={isPending}
+            className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+            style={{
+              background: isEditing ? "var(--warning)" : "var(--primary)",
+              color: isEditing ? "#fff" : "var(--primary-foreground)",
+            }}
+          >
+            {isPending
+              ? isEditing
+                ? "Guardando..."
+                : "Creando..."
+              : isEditing
+                ? "Guardar cambios"
+                : "Crear categoría"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }

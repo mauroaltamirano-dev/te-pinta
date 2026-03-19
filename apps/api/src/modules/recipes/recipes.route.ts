@@ -5,6 +5,7 @@ import { recipesController } from './recipes.controller';
 
 export async function recipesRoute(app: FastifyInstance) {
   app.get(`${env.apiPrefix}/recipes`, recipesController.getAllRecipes);
+  app.get(`${env.apiPrefix}/recipes/items`, recipesController.getAllRecipeItems); // ← nuevo
   app.get(`${env.apiPrefix}/recipes/:id`, recipesController.getRecipeById);
   app.get(
     `${env.apiPrefix}/recipes/product/:productId`,
@@ -13,6 +14,7 @@ export async function recipesRoute(app: FastifyInstance) {
 
   app.post(`${env.apiPrefix}/recipes`, recipesController.createRecipe);
   app.patch(`${env.apiPrefix}/recipes/:id`, recipesController.updateRecipe);
+  app.patch(`${env.apiPrefix}/recipes/:id/reactivate`, recipesController.reactivateRecipe);
   app.delete(`${env.apiPrefix}/recipes/:id`, recipesController.deactivateRecipe);
 
   app.get(`${env.apiPrefix}/recipes/:id/items`, recipesController.getRecipeItems);

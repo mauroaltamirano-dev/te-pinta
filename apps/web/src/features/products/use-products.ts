@@ -8,10 +8,10 @@ import {
   updateProduct,
 } from "../../services/api/products.api";
 
-export function useProducts() {
+export function useProducts(options?: { includeInactive?: boolean }) {
   return useQuery({
-    queryKey: ["products"],
-    queryFn: getProducts,
+    queryKey: ["products", options?.includeInactive ?? false],
+    queryFn: () => getProducts(options),
   });
 }
 

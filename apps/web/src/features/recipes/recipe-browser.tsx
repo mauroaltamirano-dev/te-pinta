@@ -1,163 +1,604 @@
 import { useState } from "react";
+import {
+  MdEdit,
+  MdDelete,
+  MdPowerSettingsNew,
+  MdClose,
+  MdCheck,
+} from "react-icons/md";
 
 import { useIngredients } from "../ingredients/use-ingredients";
 import { useProducts } from "../products/use-products";
 import { RecipeItemForm } from "./recipe-item-form";
-import { useRecipeByProductId, useRecipeItems } from "./use-recipes";
+import { RecipeForm } from "./recipe-form";
+import {
+  useDeactivateRecipe,
+  useDeleteRecipeItem,
+  useReactivateRecipe,
+  useRecipeByProductId,
+  useRecipeItems,
+  useUpdateRecipeItem,
+} from "./use-recipes";
+
+type RecipeUnit = "kg" | "g" | "l" | "ml" | "unit";
 
 export function RecipeBrowser() {
   const [selectedProductId, setSelectedProductId] = useState("");
+  const [isEditingRecipe, setIsEditingRecipe] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingItemQuantity, setEditingItemQuantity] = useState("");
+  const [editingItemUnit, setEditingItemUnit] = useState<RecipeUnit>("g");
 
   const { data: products } = useProducts();
-  const preparedProducts = products?.filter(
-    (product) => product.kind === "prepared",
-  );
   const { data: ingredients } = useIngredients();
 
-  const recipeQuery = useRecipeByProductId(selectedProductId);
+  const preparedProducts = products?.filter((p) => p.kind === "prepared");
+
+  const recipeQuery = useRecipeByProductId(selectedProductId, {
+    includeInactive: true,
+  });
   const recipeId = recipeQuery.data?.id ?? "";
   const itemsQuery = useRecipeItems(recipeId);
 
-  const getProductName = (productId: string) =>
-    products?.find((product) => product.id === productId)?.name ?? productId;
+  const deactivateRecipeMutation = useDeactivateRecipe();
+  const reactivateRecipeMutation = useReactivateRecipe();
+  const updateRecipeItemMutation = useUpdateRecipeItem();
+  const deleteRecipeItemMutation = useDeleteRecipeItem();
 
   const getIngredientName = (ingredientId: string) =>
-    ingredients?.find((ingredient) => ingredient.id === ingredientId)?.name ??
-    ingredientId;
+    ingredients?.find((i) => i.id === ingredientId)?.name ?? ingredientId;
+
+  const recipe = recipeQuery.data;
+  const hasRecipe = !!recipe;
+  const isActive = recipe?.isActive ?? false;
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-sombra bg-crema shadow-sm">
-      <div className="border-b border-sombra px-5 py-4">
-        <h2 className="text-lg font-bold text-bordo">Visor de recetas</h2>
-        <p className="mt-1 text-sm text-cafe/75">
-          Consultá la receta de cualquier producto preparado: sus ingredientes,
-          cantidades y notas de elaboración.
+    <div
+      className="overflow-hidden rounded-2xl border"
+      style={{
+        background: "var(--surface)",
+        borderColor: "var(--border)",
+        boxShadow: "var(--shadow-sm)",
+      }}
+    >
+      {/* ── Header ──────────────────────────────────────────── */}
+      <div
+        className="border-b px-5 py-4"
+        style={{
+          borderColor: "var(--border-soft)",
+          background: "var(--surface-2)",
+        }}
+      >
+        <p
+          className="text-xs font-semibold uppercase tracking-widest"
+          style={{ color: "var(--foreground-muted)" }}
+        >
+          Recetas
         </p>
+        <h2
+          className="mt-0.5 text-base font-bold"
+          style={{ color: "var(--foreground)" }}
+        >
+          Visor de recetas
+        </h2>
       </div>
 
       <div className="space-y-5 p-5">
-        <div className="space-y-2">
-          <label htmlFor="recipe-selector" className="text-sm font-semibold text-cafe">
-            Seleccionar producto
+        {/* ── Selector de producto ────────────────────────────── */}
+        <div className="space-y-1.5">
+          <label
+            htmlFor="recipe-selector"
+            className="block text-sm font-medium"
+            style={{ color: "var(--foreground-soft)" }}
+          >
+            Producto preparado
           </label>
-          <p className="text-xs leading-5 text-cafe/70">
-            Elegí el producto para ver o editar su receta. Solo se muestran
-            productos preparados.
-          </p>
           <select
             id="recipe-selector"
             value={selectedProductId}
-            onChange={(e) => setSelectedProductId(e.target.value)}
-            className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition focus:border-bordo"
+            onChange={(e) => {
+              setSelectedProductId(e.target.value);
+              setIsEditingRecipe(false);
+              setEditingItemId(null);
+            }}
+            className="w-full rounded-xl border px-4 py-2.5 text-sm outline-none transition"
+            style={{
+              background: "var(--background)",
+              borderColor: "var(--border)",
+              color: selectedProductId
+                ? "var(--foreground)"
+                : "var(--foreground-muted)",
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = "var(--primary)";
+              e.target.style.boxShadow = "0 0 0 3px var(--ring)";
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = "var(--border)";
+              e.target.style.boxShadow = "none";
+            }}
           >
-            <option value="">Seleccionar producto preparado</option>
-            {preparedProducts?.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.name}
+            <option value="">Seleccionar producto preparado…</option>
+            {preparedProducts?.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
               </option>
             ))}
           </select>
         </div>
 
-        {!selectedProductId ? (
-          <p className="text-sm text-cafe/60">
+        {/* ── Estado vacío ────────────────────────────────────── */}
+        {!selectedProductId && (
+          <p className="text-sm" style={{ color: "var(--foreground-muted)" }}>
             Seleccioná un producto para ver su receta.
           </p>
-        ) : null}
+        )}
 
-        {selectedProductId && recipeQuery.isLoading ? (
-          <p className="text-sm text-cafe/70">Cargando receta...</p>
-        ) : null}
+        {/* ── Loading ─────────────────────────────────────────── */}
+        {selectedProductId && recipeQuery.isLoading && (
+          <p
+            className="animate-pulse text-sm"
+            style={{ color: "var(--foreground-muted)" }}
+          >
+            Cargando receta…
+          </p>
+        )}
 
-        {selectedProductId && recipeQuery.isError ? (
-          <div className="rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
-            Este producto todavía no tiene una receta activa. Podés crearla
-            desde la sección "Nueva receta".
+        {/* ── Sin receta ──────────────────────────────────────── */}
+        {selectedProductId && recipeQuery.isError && (
+          <div
+            className="rounded-xl border px-4 py-3 text-sm"
+            style={{
+              background: "var(--warning-soft)",
+              borderColor: "var(--warning)",
+              color: "var(--warning-text)",
+            }}
+          >
+            Este producto todavía no tiene una receta. Podés crearla desde la
+            sección <strong>Nueva receta</strong>.
           </div>
-        ) : null}
+        )}
 
-        {recipeQuery.data ? (
-          <div className="space-y-5">
-            <div className="grid gap-3 rounded-2xl border border-sombra bg-arena/40 px-4 py-4 text-sm sm:grid-cols-3">
+        {/* ── Contenido de la receta ──────────────────────────── */}
+        {hasRecipe && (
+          <div className="space-y-4 animate-fade-in">
+            {/* Panel info receta */}
+            <div
+              className="grid gap-4 rounded-xl border px-5 py-4 sm:grid-cols-3"
+              style={{
+                background: "var(--surface-2)",
+                borderColor: "var(--border-soft)",
+              }}
+            >
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-cafe/60">
-                  Producto
-                </p>
-                <p className="mt-1 font-medium text-bordo">
-                  {getProductName(recipeQuery.data.productId)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-cafe/60">
+                <p
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--foreground-muted)" }}
+                >
                   Rendimiento
                 </p>
-                <p className="mt-1 font-medium text-cafe">
-                  {recipeQuery.data.yieldQuantity} unidades
+                <p
+                  className="mt-1 text-sm font-semibold"
+                  style={{ color: "var(--foreground)" }}
+                >
+                  {recipe.yieldQuantity} unidades
                 </p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-cafe/60">
+                <p
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--foreground-muted)" }}
+                >
+                  Estado
+                </p>
+                <span
+                  className="mt-1 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                  style={
+                    isActive
+                      ? {
+                          background: "var(--success-soft)",
+                          color: "var(--success-text)",
+                        }
+                      : {
+                          background: "var(--surface-3)",
+                          color: "var(--foreground-muted)",
+                        }
+                  }
+                >
+                  <span
+                    className="mr-1.5 h-1.5 w-1.5 rounded-full"
+                    style={{
+                      background: isActive
+                        ? "var(--success)"
+                        : "var(--foreground-faint)",
+                    }}
+                  />
+                  {isActive ? "Activa" : "Inactiva"}
+                </span>
+              </div>
+              <div>
+                <p
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--foreground-muted)" }}
+                >
                   Notas
                 </p>
-                <p className="mt-1 text-cafe/80">
-                  {recipeQuery.data.notes || "Sin notas"}
+                <p
+                  className="mt-1 text-sm"
+                  style={{
+                    color: recipe.notes
+                      ? "var(--foreground-soft)"
+                      : "var(--foreground-faint)",
+                  }}
+                >
+                  {recipe.notes || "Sin notas"}
                 </p>
               </div>
             </div>
 
-            <RecipeItemForm recipeId={recipeQuery.data.id} />
+            {/* Acciones de receta */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setIsEditingRecipe((prev) => !prev)}
+                className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition"
+                style={
+                  isEditingRecipe
+                    ? {
+                        background: "var(--warning)",
+                        borderColor: "var(--warning)",
+                        color: "#fff",
+                      }
+                    : {
+                        background: "var(--surface-2)",
+                        borderColor: "var(--border)",
+                        color: "var(--foreground-soft)",
+                      }
+                }
+              >
+                <MdEdit size={13} />
+                {isEditingRecipe ? "Cerrar edición" : "Editar receta"}
+              </button>
 
-            <div className="overflow-hidden rounded-2xl border border-sombra">
-              <div className="border-b border-sombra bg-arena/50 px-5 py-3">
-                <p className="text-sm font-semibold text-cafe">
+              {isActive ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("¿Desactivar esta receta?"))
+                      deactivateRecipeMutation.mutate(recipe.id);
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition"
+                  style={{
+                    background: "var(--surface-2)",
+                    borderColor: "var(--border)",
+                    color: "var(--foreground-muted)",
+                  }}
+                >
+                  <MdPowerSettingsNew size={13} />
+                  Desactivar
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("¿Reactivar esta receta?"))
+                      reactivateRecipeMutation.mutate(recipe.id);
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition"
+                  style={{
+                    background: "var(--success-soft)",
+                    borderColor: "var(--success)",
+                    color: "var(--success-text)",
+                  }}
+                >
+                  <MdPowerSettingsNew size={13} />
+                  Reactivar
+                </button>
+              )}
+            </div>
+
+            {/* Form edición receta */}
+            {isEditingRecipe && (
+              <RecipeForm
+                recipe={recipe}
+                onCancelEdit={() => setIsEditingRecipe(false)}
+              />
+            )}
+
+            {/* Form agregar ingrediente */}
+            {isActive && <RecipeItemForm recipeId={recipe.id} />}
+
+            {/* ── Tabla de items ───────────────────────────────── */}
+            <div
+              className="overflow-hidden rounded-xl border"
+              style={{ borderColor: "var(--border-soft)" }}
+            >
+              {/* Header tabla */}
+              <div
+                className="border-b px-5 py-3 flex items-center justify-between"
+                style={{
+                  borderColor: "var(--border-soft)",
+                  background: "var(--surface-2)",
+                }}
+              >
+                <p
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--foreground-muted)" }}
+                >
                   Ingredientes de la receta
                 </p>
+                <span
+                  className="text-xs"
+                  style={{ color: "var(--foreground-muted)" }}
+                >
+                  {itemsQuery.data?.length ?? 0} ingrediente
+                  {(itemsQuery.data?.length ?? 0) !== 1 ? "s" : ""}
+                </span>
               </div>
-              <table className="min-w-full">
-                <thead className="bg-arena/30">
-                  <tr>
-                    <th className="border-b border-sombra px-5 py-3 text-left text-sm font-semibold text-cafe">
-                      Ingrediente
-                    </th>
-                    <th className="border-b border-sombra px-5 py-3 text-left text-sm font-semibold text-cafe">
-                      Cantidad
-                    </th>
-                    <th className="border-b border-sombra px-5 py-3 text-left text-sm font-semibold text-cafe">
-                      Unidad
-                    </th>
+
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr style={{ background: "var(--surface-2)" }}>
+                    {["Ingrediente", "Cantidad", "Unidad", ""].map((col) => (
+                      <th
+                        key={col}
+                        className="border-b px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                        style={{
+                          borderColor: "var(--border-soft)",
+                          color: "var(--foreground-muted)",
+                        }}
+                      >
+                        {col}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
-                <tbody>
-                  {itemsQuery.data?.map((item) => (
-                    <tr key={item.id} className="transition hover:bg-arena/20">
-                      <td className="border-b border-sombra px-5 py-3 text-sm font-medium text-bordo">
-                        {getIngredientName(item.ingredientId)}
-                      </td>
-                      <td className="border-b border-sombra px-5 py-3 text-sm text-cafe">
-                        {item.quantity}
-                      </td>
-                      <td className="border-b border-sombra px-5 py-3 text-sm text-cafe">
-                        {item.unit}
-                      </td>
-                    </tr>
-                  ))}
 
-                  {!itemsQuery.data?.length ? (
+                <tbody>
+                  {itemsQuery.data?.length ? (
+                    itemsQuery.data.map((item) => {
+                      const isEditingItem = editingItemId === item.id;
+
+                      return (
+                        <tr
+                          key={item.id}
+                          className="transition"
+                          style={{
+                            background: isEditingItem
+                              ? "var(--warning-soft)"
+                              : "transparent",
+                            borderLeft: isEditingItem
+                              ? "3px solid var(--warning)"
+                              : "3px solid transparent",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isEditingItem)
+                              (
+                                e.currentTarget as HTMLTableRowElement
+                              ).style.background = "var(--surface-hover)";
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isEditingItem)
+                              (
+                                e.currentTarget as HTMLTableRowElement
+                              ).style.background = "transparent";
+                          }}
+                        >
+                          {/* Nombre */}
+                          <td
+                            className="border-b px-5 py-3 font-medium"
+                            style={{
+                              borderColor: "var(--border-soft)",
+                              color: isEditingItem
+                                ? "var(--warning-text)"
+                                : "var(--foreground)",
+                            }}
+                          >
+                            {getIngredientName(item.ingredientId)}
+                          </td>
+
+                          {/* Cantidad */}
+                          <td
+                            className="border-b px-5 py-3"
+                            style={{ borderColor: "var(--border-soft)" }}
+                          >
+                            {isEditingItem ? (
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={editingItemQuantity}
+                                onChange={(e) =>
+                                  setEditingItemQuantity(e.target.value)
+                                }
+                                className="w-24 rounded-lg border px-3 py-1.5 text-sm outline-none"
+                                style={{
+                                  background: "var(--background)",
+                                  borderColor: "var(--warning)",
+                                  color: "var(--foreground)",
+                                  boxShadow: "0 0 0 3px var(--warning-soft)",
+                                }}
+                              />
+                            ) : (
+                              <span
+                                className="tabular-nums"
+                                style={{ color: "var(--foreground)" }}
+                              >
+                                {item.quantity}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Unidad */}
+                          <td
+                            className="border-b px-5 py-3"
+                            style={{ borderColor: "var(--border-soft)" }}
+                          >
+                            {isEditingItem ? (
+                              <select
+                                value={editingItemUnit}
+                                onChange={(e) =>
+                                  setEditingItemUnit(
+                                    e.target.value as RecipeUnit,
+                                  )
+                                }
+                                className="rounded-lg border px-3 py-1.5 text-sm outline-none"
+                                style={{
+                                  background: "var(--background)",
+                                  borderColor: "var(--warning)",
+                                  color: "var(--foreground)",
+                                  boxShadow: "0 0 0 3px var(--warning-soft)",
+                                }}
+                              >
+                                {["kg", "g", "l", "ml", "unit"].map((u) => (
+                                  <option key={u} value={u}>
+                                    {u}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span
+                                className="inline-flex items-center rounded-lg px-2 py-0.5 text-xs font-semibold"
+                                style={{
+                                  background: "var(--surface-3)",
+                                  color: "var(--foreground-soft)",
+                                }}
+                              >
+                                {item.unit}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Acciones */}
+                          <td
+                            className="border-b px-5 py-3"
+                            style={{ borderColor: "var(--border-soft)" }}
+                          >
+                            <div className="flex items-center gap-2">
+                              {isEditingItem ? (
+                                <>
+                                  {/* Guardar */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      updateRecipeItemMutation.mutate(
+                                        {
+                                          recipeId: recipe.id,
+                                          itemId: item.id,
+                                          data: {
+                                            quantity:
+                                              Number(editingItemQuantity),
+                                            unit: editingItemUnit,
+                                          },
+                                        },
+                                        {
+                                          onSuccess: () => {
+                                            setEditingItemId(null);
+                                            setEditingItemQuantity("");
+                                          },
+                                        },
+                                      );
+                                    }}
+                                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition"
+                                    style={{
+                                      background: "var(--warning)",
+                                      color: "#fff",
+                                    }}
+                                  >
+                                    <MdCheck size={13} />
+                                    Guardar
+                                  </button>
+                                  {/* Cancelar */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingItemId(null);
+                                      setEditingItemQuantity("");
+                                    }}
+                                    className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition"
+                                    style={{
+                                      background: "transparent",
+                                      borderColor: "var(--border)",
+                                      color: "var(--foreground-muted)",
+                                    }}
+                                  >
+                                    <MdClose size={13} />
+                                    Cancelar
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  {/* Editar item */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingItemId(item.id);
+                                      setEditingItemQuantity(
+                                        String(item.quantity),
+                                      );
+                                      setEditingItemUnit(item.unit);
+                                    }}
+                                    className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition"
+                                    style={{
+                                      background: "var(--surface-2)",
+                                      borderColor: "var(--border)",
+                                      color: "var(--foreground-soft)",
+                                    }}
+                                    title="Editar"
+                                  >
+                                    <MdEdit size={13} />
+                                    Editar
+                                  </button>
+                                  {/* Eliminar item */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (
+                                        window.confirm(
+                                          "¿Eliminar este ingrediente de la receta?",
+                                        )
+                                      ) {
+                                        deleteRecipeItemMutation.mutate({
+                                          recipeId: recipe.id,
+                                          itemId: item.id,
+                                        });
+                                      }
+                                    }}
+                                    className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition"
+                                    style={{
+                                      background: "var(--danger-soft)",
+                                      borderColor: "var(--danger)",
+                                      color: "var(--danger-text)",
+                                    }}
+                                    title="Eliminar"
+                                  >
+                                    <MdDelete size={13} />
+                                    Eliminar
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
                     <tr>
                       <td
-                        colSpan={3}
-                        className="px-5 py-8 text-center text-sm text-cafe/65"
+                        colSpan={4}
+                        className="px-5 py-10 text-center text-sm"
+                        style={{ color: "var(--foreground-muted)" }}
                       >
-                        Todavía no hay ingredientes cargados en esta receta.
+                        Todavía no hay ingredientes en esta receta.
                       </td>
                     </tr>
-                  ) : null}
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
-        ) : null}
+        )}
       </div>
-    </section>
+    </div>
   );
 }

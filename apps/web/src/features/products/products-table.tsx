@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { MdEdit, MdPowerSettingsNew } from "react-icons/md";
 
 import type { Product } from "../../services/api/products.api";
 import {
@@ -6,279 +7,457 @@ import {
   useProducts,
   useReactivateProduct,
 } from "./use-products";
-import { MdEdit, MdDelete } from "react-icons/md";
 
+/* ── helpers ─────────────────────────────────────────────────── */
+type StatusFilter = "all" | "active" | "inactive";
+type KindFilter = "all" | Product["kind"];
 
+function formatMoney(value: number | null) {
+  if (value === null) return null;
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+const KIND_LABELS: Record<Product["kind"], string> = {
+  prepared: "Preparado",
+  resale: "Reventa",
+  combo: "Combo",
+};
+
+const KIND_STYLE: Record<Product["kind"], React.CSSProperties> = {
+  prepared: { background: "var(--info-soft)", color: "var(--info-text)" },
+  resale: { background: "var(--success-soft)", color: "var(--success-text)" },
+  combo: { background: "var(--warning-soft)", color: "var(--warning-text)" },
+};
+
+/* ── props ───────────────────────────────────────────────────── */
 type ProductsTableProps = {
   selectedProductId?: string | null;
   onEditProduct: (productId: string) => void;
 };
 
-type StatusFilter = "all" | "active" | "inactive";
-type KindFilter = "all" | Product["kind"];
-
-function formatMoney(value: number | null) {
-  if (value === null) return "—";
-
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
-function formatKindLabel(kind: Product["kind"]) {
-  if (kind === "prepared") return "Preparado";
-  if (kind === "resale") return "Reventa";
-  return "Combo";
-}
-
 export function ProductsTable({
   selectedProductId,
   onEditProduct,
 }: ProductsTableProps) {
-  const { data: products, isLoading } = useProducts();
+  const { data: products, isLoading } = useProducts({ includeInactive: true });
+
   const deactivateMutation = useDeactivateProduct();
   const reactivateMutation = useReactivateProduct();
+  const isToggling =
+    deactivateMutation.isPending || reactivateMutation.isPending;
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
 
-  const filteredProducts = useMemo(() => {
+  const filtered = useMemo(() => {
     if (!products) return [];
-
-    return products.filter((product) => {
-      const matchesSearch =
-        product.name.toLowerCase().includes(search.toLowerCase()) ||
-        (product.description ?? "")
-          .toLowerCase()
-          .includes(search.toLowerCase()) ||
-        (product.categoryName ?? "")
-          .toLowerCase()
-          .includes(search.toLowerCase());
-
-      const matchesStatus =
+    const q = search.toLowerCase();
+    return products.filter((p) => {
+      const matchSearch =
+        p.name.toLowerCase().includes(q) ||
+        (p.description ?? "").toLowerCase().includes(q) ||
+        (p.categoryName ?? "").toLowerCase().includes(q);
+      const matchStatus =
         statusFilter === "all"
           ? true
           : statusFilter === "active"
-            ? product.isActive
-            : !product.isActive;
-
-      const matchesKind =
-        kindFilter === "all" ? true : product.kind === kindFilter;
-
-      return matchesSearch && matchesStatus && matchesKind;
+            ? p.isActive
+            : !p.isActive;
+      const matchKind = kindFilter === "all" ? true : p.kind === kindFilter;
+      return matchSearch && matchStatus && matchKind;
     });
   }, [products, search, statusFilter, kindFilter]);
 
+  /* ── loading ──────────────────────────────────────────────── */
   if (isLoading) {
     return (
-      <div className="rounded-3xl border border-sombra bg-crema p-6 shadow-sm">
-        <p className="text-sm text-cafe/70">Cargando productos...</p>
+      <div
+        className="flex items-center justify-center rounded-2xl border px-6 py-12 text-sm"
+        style={{
+          background: "var(--surface)",
+          borderColor: "var(--border)",
+          color: "var(--foreground-muted)",
+        }}
+      >
+        <span className="animate-pulse">Cargando productos…</span>
       </div>
     );
   }
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-sombra bg-crema shadow-sm">
-      <div className="border-b border-sombra px-5 py-4">
-        <h2 className="text-lg font-bold text-bordo">Listado de productos</h2>
-        <p className="mt-1 text-sm text-cafe/75">
-          Buscá, filtrá y administrá los productos registrados en el sistema.
-        </p>
+    <div
+      className="overflow-hidden rounded-2xl border"
+      style={{
+        background: "var(--surface)",
+        borderColor: "var(--border)",
+        boxShadow: "var(--shadow-sm)",
+      }}
+    >
+      {/* ── Toolbar de filtros ───────────────────────────────── */}
+      <div
+        className="border-b px-5 py-4"
+        style={{
+          borderColor: "var(--border-soft)",
+          background: "var(--surface-2)",
+        }}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2
+              className="text-sm font-semibold"
+              style={{ color: "var(--foreground)" }}
+            >
+              Listado
+            </h2>
+            <p
+              className="mt-0.5 text-xs"
+              style={{ color: "var(--foreground-muted)" }}
+            >
+              {filtered.length} producto{filtered.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+
+          {/* Filtros compactos */}
+          <div className="flex flex-wrap gap-2">
+            {/* Búsqueda */}
+            <div className="relative">
+              <span
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs"
+                style={{ color: "var(--foreground-muted)" }}
+              >
+                🔍
+              </span>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar…"
+                className="rounded-xl border py-2 pl-8 pr-3 text-xs outline-none transition"
+                style={{
+                  background: "var(--background)",
+                  borderColor: "var(--border)",
+                  color: "var(--foreground)",
+                  width: "180px",
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = "var(--primary)";
+                  e.target.style.boxShadow = "0 0 0 3px var(--ring)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = "var(--border)";
+                  e.target.style.boxShadow = "none";
+                }}
+              />
+            </div>
+
+            {/* Estado */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              className="rounded-xl border px-3 py-2 text-xs outline-none transition"
+              style={{
+                background: "var(--background)",
+                borderColor: "var(--border)",
+                color: "var(--foreground)",
+              }}
+            >
+              <option value="all">Todos los estados</option>
+              <option value="active">Solo activos</option>
+              <option value="inactive">Solo inactivos</option>
+            </select>
+
+            {/* Tipo */}
+            <select
+              value={kindFilter}
+              onChange={(e) => setKindFilter(e.target.value as KindFilter)}
+              className="rounded-xl border px-3 py-2 text-xs outline-none transition"
+              style={{
+                background: "var(--background)",
+                borderColor: "var(--border)",
+                color: "var(--foreground)",
+              }}
+            >
+              <option value="all">Todos los tipos</option>
+              <option value="prepared">Preparado</option>
+              <option value="resale">Reventa</option>
+              <option value="combo">Combo</option>
+            </select>
+          </div>
+        </div>
       </div>
 
-      <div className="grid gap-4 border-b border-sombra bg-arena/30 px-5 py-4 md:grid-cols-3">
-        <div className="space-y-2">
-          <label className="text-sm font-semibold text-cafe">
-            Buscar producto
-          </label>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre, descripción o categoría"
-            className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-sm text-cafe outline-none transition placeholder:text-cafe/45 focus:border-bordo"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-semibold text-cafe">
-            Filtrar por estado
-          </label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-sm text-cafe outline-none transition focus:border-bordo"
-          >
-            <option value="all">Todos</option>
-            <option value="active">Solo activos</option>
-            <option value="inactive">Solo inactivos</option>
-          </select>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-semibold text-cafe">
-            Filtrar por tipo
-          </label>
-          <select
-            value={kindFilter}
-            onChange={(e) => setKindFilter(e.target.value as KindFilter)}
-            className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-sm text-cafe outline-none transition focus:border-bordo"
-          >
-            <option value="all">Todos</option>
-            <option value="prepared">Preparado</option>
-            <option value="resale">Reventa</option>
-            <option value="combo">Combo</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="px-5 py-3 text-sm text-cafe/70">
-        Resultados encontrados:{" "}
-        <span className="font-semibold text-bordo">
-          {filteredProducts.length}
-        </span>
-      </div>
-
+      {/* ── Tabla ───────────────────────────────────────────── */}
       <div className="overflow-x-auto">
-        <table className="min-w-[980px] w-full">
-          <thead className="bg-arena/70">
-            <tr>
-              <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
-                Producto
-              </th>
-              <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
-                Categoría
-              </th>
-              <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
-                Tipo
-              </th>
-              <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
-                Precio unitario
-              </th>
-              <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
-                Media docena
-              </th>
-              <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
-                Docena
-              </th>
-              <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
-                Costo directo
-              </th>
-              <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
-                Estado
-              </th>
-              <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
-                Acciones
-              </th>
+        <table className="min-w-[700px] w-full text-sm">
+          <thead>
+            <tr style={{ background: "var(--surface-2)" }}>
+              {["Producto", "Categoría", "Tipo", "Precios", "Estado", ""].map(
+                (col) => (
+                  <th
+                    key={col}
+                    className="border-b px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                    style={{
+                      borderColor: "var(--border-soft)",
+                      color: "var(--foreground-muted)",
+                    }}
+                  >
+                    {col}
+                  </th>
+                ),
+              )}
             </tr>
           </thead>
 
           <tbody>
-            {filteredProducts.length ? (
-              filteredProducts.map((product) => {
+            {filtered.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-5 py-12 text-center text-sm"
+                  style={{ color: "var(--foreground-muted)" }}
+                >
+                  No se encontraron productos con los filtros actuales.
+                </td>
+              </tr>
+            ) : (
+              filtered.map((product) => {
                 const isSelected = selectedProductId === product.id;
 
                 return (
                   <tr
                     key={product.id}
-                    className={[
-                      "align-top transition hover:bg-arena/30",
-                      isSelected ? "bg-arena/40" : "",
-                    ].join(" ")}
+                    className="align-top transition"
+                    style={{
+                      background: isSelected
+                        ? "var(--warning-soft)"
+                        : "transparent",
+                      borderLeft: isSelected
+                        ? "3px solid var(--warning)"
+                        : "3px solid transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected)
+                        (
+                          e.currentTarget as HTMLTableRowElement
+                        ).style.background = "var(--surface-hover)";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected)
+                        (
+                          e.currentTarget as HTMLTableRowElement
+                        ).style.background = "transparent";
+                    }}
                   >
-                    <td className="border-b border-sombra px-5 py-4 text-sm text-cafe">
-                      <div className="space-y-1">
-                        <p className="font-semibold text-bordo">
-                          {product.name}
+                    {/* Nombre + descripción */}
+                    <td
+                      className="border-b px-5 py-3.5"
+                      style={{ borderColor: "var(--border-soft)" }}
+                    >
+                      <p
+                        className="font-semibold leading-snug"
+                        style={{
+                          color: isSelected
+                            ? "var(--warning-text)"
+                            : "var(--foreground)",
+                        }}
+                      >
+                        {product.name}
+                      </p>
+                      {product.description && (
+                        <p
+                          className="mt-0.5 text-xs leading-5"
+                          style={{ color: "var(--foreground-muted)" }}
+                        >
+                          {product.description}
                         </p>
-                        <p className="text-xs leading-5 text-cafe/70">
-                          {product.description || "Sin descripción cargada"}
+                      )}
+                    </td>
+
+                    {/* Categoría */}
+                    <td
+                      className="border-b px-5 py-3.5 text-sm"
+                      style={{
+                        borderColor: "var(--border-soft)",
+                        color: "var(--foreground-muted)",
+                      }}
+                    >
+                      {product.categoryName ?? (
+                        <span style={{ color: "var(--foreground-faint)" }}>
+                          —
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Tipo */}
+                    <td
+                      className="border-b px-5 py-3.5"
+                      style={{ borderColor: "var(--border-soft)" }}
+                    >
+                      <span
+                        className="inline-flex items-center rounded-lg px-2.5 py-0.5 text-xs font-semibold"
+                        style={KIND_STYLE[product.kind]}
+                      >
+                        {KIND_LABELS[product.kind]}
+                      </span>
+                    </td>
+
+                    {/* Precios — colapsados */}
+                    <td
+                      className="border-b px-5 py-3.5"
+                      style={{ borderColor: "var(--border-soft)" }}
+                    >
+                      <div className="space-y-0.5">
+                        <p
+                          className="text-sm font-semibold tabular-nums"
+                          style={{ color: "var(--foreground)" }}
+                        >
+                          {formatMoney(product.unitPrice)}
+                          <span
+                            className="ml-1 text-xs font-normal"
+                            style={{ color: "var(--foreground-muted)" }}
+                          >
+                            /u
+                          </span>
                         </p>
+                        {product.halfDozenPrice !== null && (
+                          <p
+                            className="text-xs tabular-nums"
+                            style={{ color: "var(--foreground-muted)" }}
+                          >
+                            {formatMoney(product.halfDozenPrice)}{" "}
+                            <span style={{ color: "var(--foreground-faint)" }}>
+                              /½ doc
+                            </span>
+                          </p>
+                        )}
+                        {product.dozenPrice !== null && (
+                          <p
+                            className="text-xs tabular-nums"
+                            style={{ color: "var(--foreground-muted)" }}
+                          >
+                            {formatMoney(product.dozenPrice)}{" "}
+                            <span style={{ color: "var(--foreground-faint)" }}>
+                              /doc
+                            </span>
+                          </p>
+                        )}
+                        {product.directCost !== null && (
+                          <p
+                            className="text-xs tabular-nums"
+                            style={{ color: "var(--foreground-faint)" }}
+                          >
+                            Costo: {formatMoney(product.directCost)}
+                          </p>
+                        )}
                       </div>
                     </td>
 
-                    <td className="border-b border-sombra px-5 py-4 text-sm text-cafe">
-                      {product.categoryName ?? "Categoría no encontrada"}
-                    </td>
-
-                    <td className="border-b border-sombra px-5 py-4 text-sm text-cafe">
-                      {formatKindLabel(product.kind)}
-                    </td>
-
-                    <td className="border-b border-sombra px-5 py-4 text-sm text-cafe">
-                      {formatMoney(product.unitPrice)}
-                    </td>
-
-                    <td className="border-b border-sombra px-5 py-4 text-sm text-cafe">
-                      {formatMoney(product.halfDozenPrice)}
-                    </td>
-
-                    <td className="border-b border-sombra px-5 py-4 text-sm text-cafe">
-                      {formatMoney(product.dozenPrice)}
-                    </td>
-
-                    <td className="border-b border-sombra px-5 py-4 text-sm text-cafe">
-                      {formatMoney(product.directCost)}
-                    </td>
-
-                    <td className="border-b border-sombra px-5 py-4 text-sm">
+                    {/* Estado */}
+                    <td
+                      className="border-b px-5 py-3.5"
+                      style={{ borderColor: "var(--border-soft)" }}
+                    >
                       <span
-                        className={[
-                          "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
+                        className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                        style={
                           product.isActive
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-slate-200 text-slate-700",
-                        ].join(" ")}
+                            ? {
+                                background: "var(--success-soft)",
+                                color: "var(--success-text)",
+                              }
+                            : {
+                                background: "var(--surface-3)",
+                                color: "var(--foreground-muted)",
+                              }
+                        }
                       >
+                        <span
+                          className="mr-1.5 h-1.5 w-1.5 rounded-full"
+                          style={{
+                            background: product.isActive
+                              ? "var(--success)"
+                              : "var(--foreground-faint)",
+                          }}
+                        />
                         {product.isActive ? "Activo" : "Inactivo"}
                       </span>
                     </td>
 
-                    <td className="border-b border-sombra px-5 py-4">
-                      <div className="flex flex-col gap-2">
+                    {/* Acciones */}
+                    <td
+                      className="border-b px-5 py-3.5"
+                      style={{ borderColor: "var(--border-soft)" }}
+                    >
+                      <div className="flex items-center gap-2">
+                        {/* Editar */}
                         <button
                           type="button"
                           onClick={() => onEditProduct(product.id)}
-                          className="rounded-2xl m-auto border border-sombra bg-arena px-3 py-2 text-sm font-semibold text-cafe transition hover:bg-sombra/60"
+                          disabled={isToggling}
+                          title="Editar"
+                          className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+                          style={
+                            isSelected
+                              ? {
+                                  background: "var(--warning)",
+                                  borderColor: "var(--warning)",
+                                  color: "#fff",
+                                }
+                              : {
+                                  background: "var(--surface-2)",
+                                  borderColor: "var(--border)",
+                                  color: "var(--foreground-soft)",
+                                }
+                          }
                         >
-                          <MdEdit />
+                          <MdEdit size={13} />
+                          <span>Editar</span>
                         </button>
 
+                        {/* Activar / Desactivar */}
                         {product.isActive ? (
                           <button
                             type="button"
                             onClick={() => {
-                              const confirmed = window.confirm(
-                                `¿Seguro que querés desactivar "${product.name}"?`,
-                              );
-
-                              if (!confirmed) return;
-
-                              deactivateMutation.mutate(product.id);
+                              if (
+                                window.confirm(`¿Desactivar "${product.name}"?`)
+                              )
+                                deactivateMutation.mutate(product.id);
                             }}
-                            disabled={deactivateMutation.isPending}
-                            className="rounded-2xl m-auto bg-bordo px-3 py-2 text-sm font-semibold text-crema transition hover:bg-cafe disabled:cursor-not-allowed disabled:opacity-50"
+                            disabled={isToggling}
+                            title="Desactivar"
+                            className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+                            style={{
+                              background: "var(--surface-2)",
+                              borderColor: "var(--border)",
+                              color: "var(--foreground-muted)",
+                            }}
                           >
-                            <MdDelete />
+                            <MdPowerSettingsNew size={13} />
+                            <span>Desactivar</span>
                           </button>
                         ) : (
                           <button
                             type="button"
                             onClick={() => {
-                              const confirmed = window.confirm(
-                                `¿Querés volver a activar "${product.name}"?`,
-                              );
-
-                              if (!confirmed) return;
-
-                              reactivateMutation.mutate(product.id);
+                              if (window.confirm(`¿Activar "${product.name}"?`))
+                                reactivateMutation.mutate(product.id);
                             }}
-                            disabled={reactivateMutation.isPending}
-                            className="rounded-2xl bg-cafe px-3 py-2 text-sm font-semibold text-crema transition hover:bg-bordo disabled:cursor-not-allowed disabled:opacity-50"
+                            disabled={isToggling}
+                            title="Activar"
+                            className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+                            style={{
+                              background: "var(--success-soft)",
+                              borderColor: "var(--success)",
+                              color: "var(--success-text)",
+                            }}
                           >
-                            Reactivar producto
+                            <MdPowerSettingsNew size={13} />
+                            <span>Activar</span>
                           </button>
                         )}
                       </div>
@@ -286,19 +465,10 @@ export function ProductsTable({
                   </tr>
                 );
               })
-            ) : (
-              <tr>
-                <td
-                  colSpan={9}
-                  className="px-5 py-10 text-center text-sm text-cafe/65"
-                >
-                  No se encontraron productos con los filtros actuales.
-                </td>
-              </tr>
             )}
           </tbody>
         </table>
       </div>
-    </section>
+    </div>
   );
 }

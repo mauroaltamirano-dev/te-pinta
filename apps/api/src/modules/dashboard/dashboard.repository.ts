@@ -1,21 +1,20 @@
 import { clientsRepository } from '../clients/clients.repository';
-import { ordersRepository } from '../orders/orders.repository';
+import { ordersRepository }  from '../orders/orders.repository';
 
 export const dashboardRepository = {
-  findAllOrders() {
-    return ordersRepository.findAllOrders();
+  // ordersRepository.findAllOrders() es async → await obligatorio
+  async findAllOrders() {
+    return await ordersRepository.findAllOrders();
   },
 
-  findItemsByOrderId(orderId: string) {
-    return ordersRepository.findItemsByOrderId(orderId);
+  async findItemsByOrderId(orderId: string) {
+    return await ordersRepository.findItemsByOrderId(orderId);
   },
 
-  findClientNameById(clientId: string | null): string | null {
-    if (!clientId) {
-      return null;
-    }
-
-    const client = clientsRepository.findById(clientId);
+  async findClientNameById(clientId: string | null): Promise<string | null> {
+    if (!clientId) return null;
+    // clientsRepository.findById es async → await
+    const client = await clientsRepository.findById(clientId);
     return client?.name ?? null;
   },
 };

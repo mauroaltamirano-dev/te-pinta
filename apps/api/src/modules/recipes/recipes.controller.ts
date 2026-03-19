@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
+import { NotFoundError } from '../../shared/errors/app-error';
 import { recipesMapper } from './recipes.mapper';
 import {
   createRecipeItemSchema,
@@ -12,170 +13,103 @@ import {
 } from './recipes.schema';
 import { recipesService } from './recipes.service';
 
-function formatZodIssues(issues: Array<{ path: PropertyKey[]; message: string }>) {
-  return issues.map((issue) => ({
-    field: issue.path.join('.'),
-    message: issue.message,
-  }));
-}
-
-function isServiceError(
-  error: unknown,
-): error is { statusCode: number; message: string } {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'statusCode' in error &&
-    'message' in error
-  );
-}
-
 export const recipesController = {
   async getAllRecipes(_request: FastifyRequest, reply: FastifyReply) {
     const recipes = await recipesService.getAllRecipes();
-
     return reply.send(recipesMapper.toRecipeListResponse(recipes));
+  },
+
+  // ── nuevo ────────────────────────────────────────────────────
+  async getAllRecipeItems(_request: FastifyRequest, reply: FastifyReply) {
+    const items = await recipesService.getAllRecipeItems();
+    return reply.send(recipesMapper.toRecipeItemListResponse(items));
   },
 
   async getRecipeById(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = recipeIdParamsSchema.safeParse(request.params);
+    const { id } = recipeIdParamsSchema.parse(request.params);
 
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid route params',
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
-    }
-
-    const recipe = await recipesService.getRecipeById(paramsResult.data.id);
+    const recipe = await recipesService.getRecipeById(id);
 
     if (!recipe) {
-      return reply.status(404).send({
-        message: 'Recipe not found',
-      });
+      throw new NotFoundError('Recipe not found');
     }
 
     return reply.send(recipesMapper.toRecipeResponse(recipe));
   },
 
   async getRecipeByProductId(
-    request: FastifyRequest<{ Params: { productId: string } }>,
+    request: FastifyRequest<{
+      Params: { productId: string };
+      Querystring: { includeInactive?: string };
+    }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = recipeProductParamsSchema.safeParse(request.params);
+    const { productId } = recipeProductParamsSchema.parse(request.params);
 
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid route params',
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
-    }
-
-    const recipe = await recipesService.getRecipeByProductId(paramsResult.data.productId);
+    const includeInactive = request.query.includeInactive === 'true';
+    const recipe = await recipesService.getRecipeByProductId(
+      productId,
+      { includeInactive },
+    );
 
     if (!recipe) {
-      return reply.status(404).send({
-        message: 'Recipe not found for this product',
-      });
+      throw new NotFoundError('Recipe not found for this product');
     }
 
     return reply.send(recipesMapper.toRecipeResponse(recipe));
   },
 
   async createRecipe(request: FastifyRequest, reply: FastifyReply) {
-    const bodyResult = createRecipeSchema.safeParse(request.body);
+    const body = createRecipeSchema.parse(request.body);
 
-    if (!bodyResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid request body',
-        issues: formatZodIssues(bodyResult.error.issues),
-      });
-    }
-
-    try {
-      const recipe = await recipesService.createRecipe(bodyResult.data);
-
-      return reply.status(201).send(recipesMapper.toRecipeResponse(recipe));
-    } catch (error) {
-      if (isServiceError(error)) {
-        return reply.status(error.statusCode).send({
-          message: error.message,
-        });
-      }
-
-      return reply.status(500).send({
-        message: 'Unexpected error',
-      });
-    }
+    const recipe = await recipesService.createRecipe(body);
+    return reply.status(201).send(recipesMapper.toRecipeResponse(recipe));
   },
 
   async updateRecipe(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = recipeIdParamsSchema.safeParse(request.params);
+    const { id } = recipeIdParamsSchema.parse(request.params);
+    const body = updateRecipeSchema.parse(request.body);
 
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid route params',
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
+    const recipe = await recipesService.updateRecipe(id, body);
+
+    if (!recipe) {
+      throw new NotFoundError('Recipe not found');
     }
 
-    const bodyResult = updateRecipeSchema.safeParse(request.body);
-
-    if (!bodyResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid request body',
-        issues: formatZodIssues(bodyResult.error.issues),
-      });
-    }
-
-    try {
-      const recipe = await recipesService.updateRecipe(paramsResult.data.id, bodyResult.data);
-
-      if (!recipe) {
-        return reply.status(404).send({
-          message: 'Recipe not found',
-        });
-      }
-
-      return reply.send(recipesMapper.toRecipeResponse(recipe));
-    } catch (error) {
-      if (isServiceError(error)) {
-        return reply.status(error.statusCode).send({
-          message: error.message,
-        });
-      }
-
-      return reply.status(500).send({
-        message: 'Unexpected error',
-      });
-    }
+    return reply.send(recipesMapper.toRecipeResponse(recipe));
   },
 
   async deactivateRecipe(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = recipeIdParamsSchema.safeParse(request.params);
+    const { id } = recipeIdParamsSchema.parse(request.params);
 
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid route params',
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
-    }
-
-    const recipe = await recipesService.deactivateRecipe(paramsResult.data.id);
+    const recipe = await recipesService.deactivateRecipe(id);
 
     if (!recipe) {
-      return reply.status(404).send({
-        message: 'Recipe not found',
-      });
+      throw new NotFoundError('Recipe not found');
+    }
+
+    return reply.send(recipesMapper.toRecipeResponse(recipe));
+  },
+
+  async reactivateRecipe(
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply,
+  ) {
+    const { id } = recipeIdParamsSchema.parse(request.params);
+
+    const recipe = await recipesService.reactivateRecipe(id);
+
+    if (!recipe) {
+      throw new NotFoundError('Recipe not found');
     }
 
     return reply.send(recipesMapper.toRecipeResponse(recipe));
@@ -185,25 +119,15 @@ export const recipesController = {
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = recipeIdParamsSchema.safeParse(request.params);
+    const { id } = recipeIdParamsSchema.parse(request.params);
 
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid route params',
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
-    }
-
-    const recipe = await recipesService.getRecipeById(paramsResult.data.id);
+    const recipe = await recipesService.getRecipeById(id);
 
     if (!recipe) {
-      return reply.status(404).send({
-        message: 'Recipe not found',
-      });
+      throw new NotFoundError('Recipe not found');
     }
 
-    const items = await recipesService.getRecipeItems(paramsResult.data.id);
-
+    const items = await recipesService.getRecipeItems(id);
     return reply.send(recipesMapper.toRecipeItemListResponse(items));
   },
 
@@ -211,126 +135,51 @@ export const recipesController = {
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = recipeIdParamsSchema.safeParse(request.params);
+    const { id } = recipeIdParamsSchema.parse(request.params);
+    const body = createRecipeItemSchema.parse(request.body);
 
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid route params',
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
-    }
-
-    const bodyResult = createRecipeItemSchema.safeParse(request.body);
-
-    if (!bodyResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid request body',
-        issues: formatZodIssues(bodyResult.error.issues),
-      });
-    }
-
-    try {
-      const item = await recipesService.createRecipeItem(paramsResult.data.id, bodyResult.data);
-
-      return reply.status(201).send(recipesMapper.toRecipeItemResponse(item));
-    } catch (error) {
-      if (isServiceError(error)) {
-        return reply.status(error.statusCode).send({
-          message: error.message,
-        });
-      }
-
-      return reply.status(500).send({
-        message: 'Unexpected error',
-      });
-    }
+    const item = await recipesService.createRecipeItem(
+      id,
+      body,
+    );
+    return reply.status(201).send(recipesMapper.toRecipeItemResponse(item));
   },
 
   async updateRecipeItem(
     request: FastifyRequest<{ Params: { id: string; itemId: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = recipeItemParamsSchema.safeParse(request.params);
+    const { id, itemId } = recipeItemParamsSchema.parse(request.params);
+    const body = updateRecipeItemSchema.parse(request.body);
 
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid route params',
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
+    const item = await recipesService.updateRecipeItem(
+      id,
+      itemId,
+      body,
+    );
+
+    if (!item) {
+      throw new NotFoundError('Recipe item not found');
     }
 
-    const bodyResult = updateRecipeItemSchema.safeParse(request.body);
-
-    if (!bodyResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid request body',
-        issues: formatZodIssues(bodyResult.error.issues),
-      });
-    }
-
-    try {
-      const item = await recipesService.updateRecipeItem(
-        paramsResult.data.id,
-        paramsResult.data.itemId,
-        bodyResult.data,
-      );
-
-      if (!item) {
-        return reply.status(404).send({
-          message: 'Recipe item not found',
-        });
-      }
-
-      return reply.send(recipesMapper.toRecipeItemResponse(item));
-    } catch (error) {
-      if (isServiceError(error)) {
-        return reply.status(error.statusCode).send({
-          message: error.message,
-        });
-      }
-
-      return reply.status(500).send({
-        message: 'Unexpected error',
-      });
-    }
+    return reply.send(recipesMapper.toRecipeItemResponse(item));
   },
 
   async deleteRecipeItem(
     request: FastifyRequest<{ Params: { id: string; itemId: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = recipeItemParamsSchema.safeParse(request.params);
+    const { id, itemId } = recipeItemParamsSchema.parse(request.params);
 
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid route params',
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
+    const item = await recipesService.deleteRecipeItem(
+      id,
+      itemId,
+    );
+
+    if (!item) {
+      throw new NotFoundError('Recipe item not found');
     }
 
-    try {
-      const item = await recipesService.deleteRecipeItem(
-        paramsResult.data.id,
-        paramsResult.data.itemId,
-      );
-
-      if (!item) {
-        return reply.status(404).send({
-          message: 'Recipe item not found',
-        });
-      }
-
-      return reply.send(recipesMapper.toRecipeItemResponse(item));
-    } catch (error) {
-      if (isServiceError(error)) {
-        return reply.status(error.statusCode).send({
-          message: error.message,
-        });
-      }
-
-      return reply.status(500).send({
-        message: 'Unexpected error',
-      });
-    }
+    return reply.send(recipesMapper.toRecipeItemResponse(item));
   },
 };

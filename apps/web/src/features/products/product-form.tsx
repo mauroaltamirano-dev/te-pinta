@@ -1,10 +1,12 @@
 import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
+import { MdClose } from "react-icons/md";
 
 import type { Product } from "../../services/api/products.api";
 import { useCategories } from "../categories/use-categories";
 import { useCreateProduct, useUpdateProduct } from "./use-products";
 
+/* ── tipos ──────────────────────────────────────────────────── */
 type FormData = {
   categoryId: string;
   name: string;
@@ -21,12 +23,25 @@ type ProductFormProps = {
   onCancelEdit?: () => void;
 };
 
-function formatKindLabel(kind: FormData["kind"]) {
-  if (kind === "prepared") return "Preparado";
-  if (kind === "resale") return "Reventa";
-  return "Combo";
-}
+/* ── helpers ────────────────────────────────────────────────── */
+const KIND_OPTIONS = [
+  { value: "prepared", label: "Preparado", desc: "Elaborado por el negocio" },
+  { value: "resale", label: "Reventa", desc: "Comprado y revendido" },
+  { value: "combo", label: "Combo", desc: "Combinación de productos" },
+] as const;
 
+const EMPTY_DEFAULTS: FormData = {
+  categoryId: "",
+  name: "",
+  description: "",
+  kind: "prepared",
+  unitPrice: 0,
+  halfDozenPrice: 0,
+  dozenPrice: 0,
+  directCost: 0,
+};
+
+/* ── componente ─────────────────────────────────────────────── */
 export function ProductForm({ product, onCancelEdit }: ProductFormProps) {
   const isEditing = Boolean(product);
 
@@ -36,32 +51,30 @@ export function ProductForm({ product, onCancelEdit }: ProductFormProps) {
     reset,
     watch,
     formState: { errors },
-  } = useForm<FormData>({
-    defaultValues: {
-      categoryId: "",
-      name: "",
-      description: "",
-      kind: "prepared",
-      unitPrice: 0,
-      halfDozenPrice: 0,
-      dozenPrice: 0,
-      directCost: 0,
-    },
-  });
+  } = useForm<FormData>({ defaultValues: EMPTY_DEFAULTS });
 
   const { data: categories } = useCategories();
   const createMutation = useCreateProduct();
   const updateMutation = useUpdateProduct();
 
   const kind = watch("kind");
-
-  const requiresDirectCost = useMemo(
-    () => kind === "resale" || kind === "combo",
-    [kind],
-  );
-
   const isPrepared = kind === "prepared";
+  const needsDirectCost = kind === "resale" || kind === "combo";
 
+  const currentMutation = isEditing ? updateMutation : createMutation;
+  const isPending = currentMutation.isPending;
+  const isError = currentMutation.isError;
+  const isSuccess = currentMutation.isSuccess;
+
+  const errorMessage = useMemo(() => {
+    if (currentMutation.error instanceof Error)
+      return currentMutation.error.message;
+    return isEditing
+      ? "Error al editar el producto."
+      : "Error al crear el producto.";
+  }, [currentMutation.error, isEditing]);
+
+  /* reset on product change */
   useEffect(() => {
     if (product) {
       reset({
@@ -74,22 +87,12 @@ export function ProductForm({ product, onCancelEdit }: ProductFormProps) {
         dozenPrice: product.dozenPrice ?? 0,
         directCost: product.directCost ?? 0,
       });
-
-      return;
+    } else {
+      reset(EMPTY_DEFAULTS);
     }
-
-    reset({
-      categoryId: "",
-      name: "",
-      description: "",
-      kind: "prepared",
-      unitPrice: 0,
-      halfDozenPrice: 0,
-      dozenPrice: 0,
-      directCost: 0,
-    });
   }, [product, reset]);
 
+  /* submit */
   const onSubmit = (data: FormData) => {
     const payload = {
       categoryId: data.categoryId,
@@ -97,337 +100,418 @@ export function ProductForm({ product, onCancelEdit }: ProductFormProps) {
       description: data.description?.trim() || undefined,
       kind: data.kind,
       unitPrice: Number(data.unitPrice),
-      halfDozenPrice: isPrepared
-        ? data.halfDozenPrice && data.halfDozenPrice > 0
+      halfDozenPrice:
+        isPrepared && data.halfDozenPrice && data.halfDozenPrice > 0
           ? Number(data.halfDozenPrice)
-          : undefined
-        : undefined,
-      dozenPrice: isPrepared
-        ? data.dozenPrice && data.dozenPrice > 0
+          : undefined,
+      dozenPrice:
+        isPrepared && data.dozenPrice && data.dozenPrice > 0
           ? Number(data.dozenPrice)
-          : undefined
-        : undefined,
-      directCost: requiresDirectCost
-        ? data.directCost !== undefined && data.directCost > 0
+          : undefined,
+      directCost:
+        needsDirectCost && data.directCost !== undefined && data.directCost > 0
           ? Number(data.directCost)
-          : undefined
-        : undefined,
+          : undefined,
     };
 
     if (isEditing && product) {
       updateMutation.mutate(
-        {
-          productId: product.id,
-          data: payload,
-        },
-        {
-          onSuccess: () => {
-            onCancelEdit?.();
-          },
-        },
+        { productId: product.id, data: payload },
+        { onSuccess: () => onCancelEdit?.() },
       );
-
-      return;
+    } else {
+      createMutation.mutate(payload, {
+        onSuccess: () => reset(EMPTY_DEFAULTS),
+      });
     }
-
-    createMutation.mutate(payload, {
-      onSuccess: () => {
-        reset({
-          categoryId: "",
-          name: "",
-          description: "",
-          kind: "prepared",
-          unitPrice: 0,
-          halfDozenPrice: 0,
-          dozenPrice: 0,
-          directCost: 0,
-        });
-      },
-    });
   };
 
-  const currentMutation = isEditing ? updateMutation : createMutation;
+  /* ── estilos compartidos ──────────────────────────────────── */
+  const fieldBase =
+    "w-full rounded-xl border px-4 py-2.5 text-sm outline-none transition";
+  const fieldStyle = (hasError?: boolean) => ({
+    background: "var(--background)",
+    borderColor: hasError ? "var(--danger)" : "var(--border)",
+    color: "var(--foreground)",
+  });
+  const focusOn = (
+    e: React.FocusEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) => {
+    e.target.style.borderColor = isEditing
+      ? "var(--warning)"
+      : "var(--primary)";
+    e.target.style.boxShadow = `0 0 0 3px ${isEditing ? "var(--warning-soft)" : "var(--ring)"}`;
+  };
+  const focusOff = (
+    e: React.FocusEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+    hasError?: boolean,
+  ) => {
+    e.target.style.borderColor = hasError ? "var(--danger)" : "var(--border)";
+    e.target.style.boxShadow = "none";
+  };
 
-  return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
-      className="space-y-5 rounded-3xl border border-sombra bg-crema p-5 shadow-sm"
-    >
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cafe/65">
-          {isEditing ? "Edición de producto" : "Nuevo producto"}
-        </p>
+  const labelCls = "block text-sm font-medium mb-1.5";
+  const labelStyle = { color: "var(--foreground-soft)" };
+  const errorEl = (msg?: string) =>
+    msg ? (
+      <p className="mt-1 text-xs" style={{ color: "var(--danger-text)" }}>
+        {msg}
+      </p>
+    ) : null;
 
-        <h2 className="mt-2 text-xl font-bold text-bordo">
-          {isEditing ? "Modificar producto" : "Registrar producto"}
-        </h2>
-
-        <p className="mt-2 text-sm leading-6 text-cafe/80">
-          {isEditing
-            ? "Actualizá la información del producto seleccionado. Revisá especialmente categoría, tipo, precios y costo directo."
-            : "Completá la información del producto para dejar bien definido qué se vende, cómo se clasifica y qué valores económicos utiliza el sistema."}
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <label
-          htmlFor="product-category"
-          className="text-sm font-semibold text-cafe"
+  const moneyField = (
+    id: string,
+    fieldName: keyof FormData,
+    label: string,
+    placeholder: string,
+    required?: boolean,
+  ) => (
+    <div>
+      <label htmlFor={id} className={labelCls} style={labelStyle}>
+        {label}
+        {required && <span style={{ color: "var(--danger)" }}> *</span>}
+      </label>
+      <div className="relative">
+        <span
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm"
+          style={{ color: "var(--foreground-muted)" }}
         >
-          Categoría del producto
-        </label>
-        <p className="text-xs leading-5 text-cafe/70">
-          Elegí la categoría a la que pertenece este producto dentro del menú o
-          catálogo.
-        </p>
-        <select
-          id="product-category"
-          {...register("categoryId", {
-            required: "Debes seleccionar una categoría",
-          })}
-          className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition focus:border-bordo"
-        >
-          <option value="">Seleccionar categoría</option>
-          {categories?.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-        {errors.categoryId ? (
-          <p className="text-sm text-red-700">{errors.categoryId.message}</p>
-        ) : null}
-      </div>
-
-      <div className="space-y-2">
-        <label
-          htmlFor="product-name"
-          className="text-sm font-semibold text-cafe"
-        >
-          Nombre del producto
-        </label>
-        <p className="text-xs leading-5 text-cafe/70">
-          Ingresá el nombre con el que el producto será identificado en el
-          sistema.
-        </p>
+          $
+        </span>
         <input
-          id="product-name"
-          {...register("name", {
-            required: "Debes ingresar un nombre",
-          })}
-          placeholder="Ej: Empanada de jamón y queso"
-          className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition placeholder:text-cafe/45 focus:border-bordo"
-        />
-        {errors.name ? (
-          <p className="text-sm text-red-700">{errors.name.message}</p>
-        ) : null}
-      </div>
-
-      <div className="space-y-2">
-        <label
-          htmlFor="product-description"
-          className="text-sm font-semibold text-cafe"
-        >
-          Descripción del producto
-        </label>
-        <p className="text-xs leading-5 text-cafe/70">
-          Detallá información útil para identificarlo mejor. Este campo es
-          opcional.
-        </p>
-        <textarea
-          id="product-description"
-          {...register("description")}
-          rows={3}
-          placeholder="Ej: Empanada horneable, lista para freezar o cocinar"
-          className="w-full resize-none rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition placeholder:text-cafe/45 focus:border-bordo"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label
-          htmlFor="product-kind"
-          className="text-sm font-semibold text-cafe"
-        >
-          Tipo de producto
-        </label>
-        <p className="text-xs leading-5 text-cafe/70">
-          Definí si el producto es elaborado por ustedes, de reventa o si
-          corresponde a un combo.
-        </p>
-        <select
-          id="product-kind"
-          {...register("kind")}
-          className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition focus:border-bordo"
-        >
-          <option value="prepared">Preparado</option>
-          <option value="resale">Reventa</option>
-          <option value="combo">Combo</option>
-        </select>
-
-        <div className="rounded-2xl border border-sombra bg-arena/60 px-4 py-3 text-xs leading-5 text-cafe/80">
-          Tipo seleccionado:{" "}
-          <span className="font-semibold">{formatKindLabel(kind)}</span>
-          {kind === "prepared"
-            ? ". Producto elaborado por el negocio, como empanadas. Puede tener precio por unidad, media docena y docena."
-            : ". Producto de venta directa o combo. Usa precio unitario y requiere costo directo."}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <label
-          htmlFor="product-unit-price"
-          className="text-sm font-semibold text-cafe"
-        >
-          Precio de venta por unidad
-        </label>
-        <p className="text-xs leading-5 text-cafe/70">
-          Indicá cuánto se cobra una unidad individual del producto.
-        </p>
-        <input
-          id="product-unit-price"
+          id={id}
           type="number"
           step="0.01"
           min="0"
-          {...register("unitPrice", {
+          {...register(fieldName, {
             valueAsNumber: true,
-            required: "Debes ingresar el precio unitario",
+            ...(required
+              ? {
+                  required: "Campo obligatorio",
+                  min: { value: 0.01, message: "Debe ser mayor a 0" },
+                }
+              : {}),
           })}
-          placeholder="Ej: 1500"
-          className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition focus:border-bordo"
+          placeholder={placeholder}
+          className={`${fieldBase} pl-7`}
+          style={fieldStyle(!!(errors as Record<string, unknown>)[fieldName])}
+          onFocus={focusOn}
+          onBlur={(e) =>
+            focusOff(e, !!(errors as Record<string, unknown>)[fieldName])
+          }
         />
-        <div className="rounded-2xl border border-sombra bg-arena/50 px-4 py-3 text-xs leading-5 text-cafe/75">
-          {kind === "prepared"
-            ? "En productos preparados, este valor representa el precio de una unidad individual, por ejemplo una empanada suelta."
-            : "En productos de reventa o combo, este valor representa el precio final de venta por unidad."}
-        </div>
-        {errors.unitPrice ? (
-          <p className="text-sm text-red-700">{errors.unitPrice.message}</p>
-        ) : null}
       </div>
+      {errorEl(
+        (errors as Record<string, { message?: string }>)[fieldName]?.message,
+      )}
+    </div>
+  );
 
-      {isPrepared ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <label
-              htmlFor="product-half-dozen-price"
-              className="text-sm font-semibold text-cafe"
-            >
-              Precio de media docena
-            </label>
-            <p className="text-xs leading-5 text-cafe/70">
-              Usá este campo si el producto se vende por 6 unidades con precio
-              especial.
-            </p>
-            <input
-              id="product-half-dozen-price"
-              type="number"
-              step="0.01"
-              min="0"
-              {...register("halfDozenPrice", { valueAsNumber: true })}
-              placeholder="Ej: 8500"
-              className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition focus:border-bordo"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label
-              htmlFor="product-dozen-price"
-              className="text-sm font-semibold text-cafe"
-            >
-              Precio de docena
-            </label>
-            <p className="text-xs leading-5 text-cafe/70">
-              Usá este campo si el producto se vende por 12 unidades con precio
-              especial.
-            </p>
-            <input
-              id="product-dozen-price"
-              type="number"
-              step="0.01"
-              min="0"
-              {...register("dozenPrice", { valueAsNumber: true })}
-              placeholder="Ej: 15000"
-              className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition focus:border-bordo"
-            />
-          </div>
-        </div>
-      ) : null}
-
-      {requiresDirectCost ? (
-        <div className="space-y-2">
-          <label
-            htmlFor="product-direct-cost"
-            className="text-sm font-semibold text-cafe"
+  /* ── render ───────────────────────────────────────────────── */
+  return (
+    <div
+      className="overflow-hidden rounded-2xl border transition-all"
+      style={{
+        background: "var(--surface)",
+        borderColor: isEditing ? "var(--warning)" : "var(--border)",
+        boxShadow: isEditing
+          ? "0 0 0 3px var(--warning-soft)"
+          : "var(--shadow-sm)",
+      }}
+    >
+      {/* ── Header ──────────────────────────────────────────── */}
+      <div
+        className="flex items-center justify-between border-b px-5 py-4"
+        style={{
+          borderColor: isEditing ? "var(--warning)" : "var(--border-soft)",
+          background: isEditing ? "var(--warning-soft)" : "var(--surface-2)",
+        }}
+      >
+        <div>
+          <p
+            className="text-xs font-semibold uppercase tracking-widest"
+            style={{
+              color: isEditing
+                ? "var(--warning-text)"
+                : "var(--foreground-muted)",
+            }}
           >
-            Costo directo del producto
-          </label>
-          <p className="text-xs leading-5 text-cafe/70">
-            Indicá el costo directo unitario. Este valor es obligatorio para
-            productos de reventa y combos.
+            {isEditing ? "Editando producto" : "Nuevo producto"}
           </p>
-          <input
-            id="product-direct-cost"
-            type="number"
-            step="0.01"
-            min="0"
-            {...register("directCost", {
-              valueAsNumber: true,
-              required: requiresDirectCost
-                ? "Debes ingresar el costo directo"
-                : false,
-            })}
-            placeholder="Ej: 900"
-            className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition focus:border-bordo"
-          />
-          {errors.directCost ? (
-            <p className="text-sm text-red-700">{errors.directCost.message}</p>
-          ) : null}
+          <h2
+            className="mt-0.5 text-base font-bold"
+            style={{
+              color: isEditing ? "var(--warning-text)" : "var(--foreground)",
+            }}
+          >
+            {isEditing ? product!.name : "Registrar producto"}
+          </h2>
         </div>
-      ) : null}
-
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <button
-          type="submit"
-          disabled={currentMutation.isPending}
-          className="w-full rounded-2xl bg-bordo px-4 py-3 text-sm font-semibold text-crema transition hover:bg-cafe disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {currentMutation.isPending
-            ? isEditing
-              ? "Guardando cambios..."
-              : "Creando producto..."
-            : isEditing
-              ? "Guardar cambios del producto"
-              : "Registrar producto"}
-        </button>
-
-        {isEditing ? (
+        {isEditing && (
           <button
             type="button"
             onClick={onCancelEdit}
-            className="w-full rounded-2xl border border-sombra bg-arena px-4 py-3 text-sm font-semibold text-cafe transition hover:bg-sombra/60"
+            className="rounded-lg p-1.5 transition"
+            style={{ color: "var(--warning-text)" }}
+            title="Cancelar edición"
           >
-            Cancelar edición
+            <MdClose size={18} />
           </button>
-        ) : null}
+        )}
       </div>
 
-      {currentMutation.isError ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {currentMutation.error instanceof Error
-            ? currentMutation.error.message
-            : isEditing
-              ? "Ocurrió un error al editar el producto"
-              : "Ocurrió un error al crear el producto"}
-        </div>
-      ) : null}
+      {/* ── Cuerpo ──────────────────────────────────────────── */}
+      <form onSubmit={handleSubmit(onSubmit)} className="p-5">
+        {/* Fila 1: Categoría + Nombre */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="prod-cat" className={labelCls} style={labelStyle}>
+              Categoría <span style={{ color: "var(--danger)" }}>*</span>
+            </label>
+            <select
+              id="prod-cat"
+              {...register("categoryId", {
+                required: "Seleccioná una categoría",
+              })}
+              className={fieldBase}
+              style={fieldStyle(!!errors.categoryId)}
+              onFocus={focusOn}
+              onBlur={(e) => focusOff(e, !!errors.categoryId)}
+            >
+              <option value="">Seleccionar…</option>
+              {categories?.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            {errorEl(errors.categoryId?.message)}
+          </div>
 
-      {currentMutation.isSuccess ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {isEditing
-            ? "Producto actualizado correctamente."
-            : "Producto creado correctamente."}
+          <div>
+            <label htmlFor="prod-name" className={labelCls} style={labelStyle}>
+              Nombre <span style={{ color: "var(--danger)" }}>*</span>
+            </label>
+            <input
+              id="prod-name"
+              {...register("name", { required: "Ingresá un nombre" })}
+              placeholder="Ej: Empanada de jamón y queso"
+              className={fieldBase}
+              style={fieldStyle(!!errors.name)}
+              onFocus={focusOn}
+              onBlur={(e) => focusOff(e, !!errors.name)}
+            />
+            {errorEl(errors.name?.message)}
+          </div>
         </div>
-      ) : null}
-    </form>
+
+        {/* Fila 2: Descripción + Tipo */}
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="prod-desc" className={labelCls} style={labelStyle}>
+              Descripción{" "}
+              <span
+                className="text-xs font-normal"
+                style={{ color: "var(--foreground-muted)" }}
+              >
+                (opcional)
+              </span>
+            </label>
+            <textarea
+              id="prod-desc"
+              {...register("description")}
+              rows={2}
+              placeholder="Ej: Horneable, apta para freezar"
+              className={`${fieldBase} resize-none`}
+              style={fieldStyle()}
+              onFocus={focusOn}
+              onBlur={(e) => focusOff(e)}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="prod-kind" className={labelCls} style={labelStyle}>
+              Tipo de producto <span style={{ color: "var(--danger)" }}>*</span>
+            </label>
+            <select
+              id="prod-kind"
+              {...register("kind")}
+              className={fieldBase}
+              style={fieldStyle()}
+              onFocus={focusOn}
+              onBlur={(e) => focusOff(e)}
+            >
+              {KIND_OPTIONS.map(({ value, label, desc }) => (
+                <option key={value} value={value}>
+                  {label} — {desc}
+                </option>
+              ))}
+            </select>
+
+            {/* Chip tipo activo */}
+            <div className="mt-2 flex items-center gap-2">
+              <span
+                className="rounded-lg px-2.5 py-1 text-xs font-semibold"
+                style={
+                  kind === "prepared"
+                    ? {
+                        background: "var(--info-soft)",
+                        color: "var(--info-text)",
+                      }
+                    : kind === "resale"
+                      ? {
+                          background: "var(--success-soft)",
+                          color: "var(--success-text)",
+                        }
+                      : {
+                          background: "var(--warning-soft)",
+                          color: "var(--warning-text)",
+                        }
+                }
+              >
+                {KIND_OPTIONS.find((o) => o.value === kind)?.label}
+              </span>
+              <span
+                className="text-xs"
+                style={{ color: "var(--foreground-muted)" }}
+              >
+                {KIND_OPTIONS.find((o) => o.value === kind)?.desc}
+                {isPrepared
+                  ? " · puede tener precio por media docena y docena"
+                  : " · requiere costo directo"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div
+          className="my-5 border-t"
+          style={{ borderColor: "var(--border-soft)" }}
+        />
+
+        {/* Fila 3: Precios */}
+        <p
+          className="mb-3 text-xs font-semibold uppercase tracking-wider"
+          style={{ color: "var(--foreground-muted)" }}
+        >
+          Precios de venta
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          {moneyField(
+            "prod-unit-price",
+            "unitPrice",
+            "Por unidad",
+            "1.500",
+            true,
+          )}
+
+          {isPrepared && (
+            <>
+              {moneyField(
+                "prod-half-dozen",
+                "halfDozenPrice",
+                "Media docena",
+                "8.500",
+              )}
+              {moneyField("prod-dozen", "dozenPrice", "Docena", "15.000")}
+            </>
+          )}
+        </div>
+
+        {/* Costo directo — solo resale/combo */}
+        {needsDirectCost && (
+          <>
+            <div
+              className="my-5 border-t"
+              style={{ borderColor: "var(--border-soft)" }}
+            />
+            <p
+              className="mb-3 text-xs font-semibold uppercase tracking-wider"
+              style={{ color: "var(--foreground-muted)" }}
+            >
+              Costo
+            </p>
+            <div className="max-w-xs">
+              {moneyField(
+                "prod-direct-cost",
+                "directCost",
+                "Costo directo por unidad",
+                "900",
+                needsDirectCost,
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Feedback */}
+        {isError && (
+          <div
+            className="mt-4 rounded-xl border px-4 py-3 text-sm animate-fade-in"
+            style={{
+              background: "var(--danger-soft)",
+              borderColor: "var(--danger)",
+              color: "var(--danger-text)",
+            }}
+          >
+            {errorMessage}
+          </div>
+        )}
+        {isSuccess && (
+          <div
+            className="mt-4 rounded-xl border px-4 py-3 text-sm animate-fade-in"
+            style={{
+              background: "var(--success-soft)",
+              borderColor: "var(--success)",
+              color: "var(--success-text)",
+            }}
+          >
+            {isEditing
+              ? "Producto actualizado correctamente."
+              : "Producto registrado correctamente."}
+          </div>
+        )}
+
+        {/* Acciones */}
+        <div className="mt-5 flex gap-2">
+          {isEditing && (
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="rounded-xl border px-5 py-2.5 text-sm font-semibold transition"
+              style={{
+                borderColor: "var(--border)",
+                color: "var(--foreground-muted)",
+                background: "transparent",
+              }}
+            >
+              Cancelar
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={isPending}
+            className="flex-1 rounded-xl px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+            style={{
+              background: isEditing ? "var(--warning)" : "var(--primary)",
+              color: isEditing ? "#fff" : "var(--primary-foreground)",
+            }}
+          >
+            {isPending
+              ? isEditing
+                ? "Guardando..."
+                : "Registrando..."
+              : isEditing
+                ? "Guardar cambios"
+                : "Registrar producto"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }

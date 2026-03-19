@@ -1,128 +1,197 @@
-import type { Order, OrderItem } from './orders.types';
+import { eq } from "drizzle-orm";
 
-const orders = new Map<string, Order>();
-const orderItems = new Map<string, OrderItem>();
+import { db } from "../../db/client";
+import { orderItemsTable, ordersTable } from "../../db/schema";
+import type { Order, OrderItem } from "./orders.types";
 
-function generateOrderId() {
-  return crypto.randomUUID();
+type CreateOrderData = Omit<Order, "id" | "createdAt" | "updatedAt">;
+
+type CreateOrderItemData = Omit<
+  OrderItem,
+  "id" | "orderId" | "createdAt" | "updatedAt"
+>;
+
+function mapRowToOrder(row: typeof ordersTable.$inferSelect): Order {
+  return {
+    id: row.id,
+    clientId: row.clientId,
+    customerNameSnapshot: row.customerNameSnapshot,
+    status: row.status as Order["status"],
+    channel: row.channel as Order["channel"],
+    deliveryDate: row.deliveryDate,
+    paymentMethod: row.paymentMethod as Order["paymentMethod"],
+    isPaid: row.isPaid,
+    notes: row.notes,
+    subtotalAmount: row.subtotalAmount,
+    discountAmount: row.discountAmount,
+    totalAmount: row.totalAmount,
+    isActive: row.isActive,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
-function generateOrderItemId() {
-  return crypto.randomUUID();
+function mapRowToOrderItem(
+  row: typeof orderItemsTable.$inferSelect,
+): OrderItem {
+  return {
+    id: row.id,
+    orderId: row.orderId,
+    productId: row.productId,
+    productNameSnapshot: row.productNameSnapshot,
+    quantity: row.quantity,
+    unitSalePriceSnapshot: row.unitSalePriceSnapshot,
+    unitCostSnapshot: row.unitCostSnapshot,
+    lineSubtotal: row.lineSubtotal,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
 export const ordersRepository = {
-  findAllOrders(): Order[] {
-    return Array.from(orders.values());
+  async findAllOrders(): Promise<Order[]> {
+    const rows = await db.select().from(ordersTable);
+    return rows.map(mapRowToOrder);
   },
 
-  findOrderById(id: string): Order | null {
-    return orders.get(id) ?? null;
+  async findOrderById(id: string): Promise<Order | null> {
+    const [row] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
+    return row ? mapRowToOrder(row) : null;
   },
 
-  findItemsByOrderId(orderId: string): OrderItem[] {
-    return Array.from(orderItems.values()).filter((item) => item.orderId === orderId);
+  async findItemsByOrderId(orderId: string): Promise<OrderItem[]> {
+    const rows = await db
+      .select()
+      .from(orderItemsTable)
+      .where(eq(orderItemsTable.orderId, orderId));
+    return rows.map(mapRowToOrderItem);
   },
 
-  createOrder(orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Order {
-    const now = new Date().toISOString();
+  async createOrder(orderData: CreateOrderData): Promise<Order> {
+    const [row] = await db
+      .insert(ordersTable)
+      .values({
+        clientId: orderData.clientId,
+        customerNameSnapshot: orderData.customerNameSnapshot,
+        status: orderData.status,
+        channel: orderData.channel,
+        deliveryDate: orderData.deliveryDate,
+        paymentMethod: orderData.paymentMethod,
+        isPaid: orderData.isPaid,
+        notes: orderData.notes,
+        subtotalAmount: orderData.subtotalAmount,
+        discountAmount: orderData.discountAmount,
+        totalAmount: orderData.totalAmount,
+        isActive: orderData.isActive,
+      })
+      .returning();
 
-    const order: Order = {
-      id: generateOrderId(),
-      ...orderData,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    orders.set(order.id, order);
-
-    return order;
+    return mapRowToOrder(row);
   },
 
-  createOrderItems(
+  async createOrderItems(
     orderId: string,
-    itemsData: Array<Omit<OrderItem, 'id' | 'orderId' | 'createdAt' | 'updatedAt'>>,
-  ): OrderItem[] {
-    const now = new Date().toISOString();
+    itemsData: CreateOrderItemData[],
+  ): Promise<OrderItem[]> {
+    if (itemsData.length === 0) return [];
 
-    const createdItems = itemsData.map((itemData) => {
-      const item: OrderItem = {
-        id: generateOrderItemId(),
-        orderId,
-        ...itemData,
-        createdAt: now,
-        updatedAt: now,
-      };
+    const rows = await db
+      .insert(orderItemsTable)
+      .values(
+        itemsData.map((item) => ({
+          orderId,
+          productId: item.productId,
+          productNameSnapshot: item.productNameSnapshot,
+          quantity: item.quantity,
+          unitSalePriceSnapshot: item.unitSalePriceSnapshot,
+          unitCostSnapshot: item.unitCostSnapshot,
+          lineSubtotal: item.lineSubtotal,
+        })),
+      )
+      .returning();
 
-      orderItems.set(item.id, item);
-
-      return item;
-    });
-
-    return createdItems;
+    return rows.map(mapRowToOrderItem);
   },
 
-  replaceOrderItems(
+  async replaceOrderItems(
     orderId: string,
-    itemsData: Array<Omit<OrderItem, 'id' | 'orderId' | 'createdAt' | 'updatedAt'>>,
-  ): OrderItem[] {
-    for (const item of orderItems.values()) {
-      if (item.orderId === orderId) {
-        orderItems.delete(item.id);
-      }
-    }
-
-    return this.createOrderItems(orderId, itemsData);
+    itemsData: CreateOrderItemData[],
+  ): Promise<OrderItem[]> {
+    await db.delete(orderItemsTable).where(eq(orderItemsTable.orderId, orderId));
+    return await this.createOrderItems(orderId, itemsData);
   },
 
-  updateOrder(
+  async updateOrder(
     id: string,
     input: Partial<
       Pick<
         Order,
-        | 'clientId'
-        | 'status'
-        | 'channel'
-        | 'notes'
-        | 'subtotalAmount'
-        | 'discountAmount'
-        | 'totalAmount'
-        | 'isActive'
+        | "clientId"
+        | "customerNameSnapshot"
+        | "status"
+        | "channel"
+        | "deliveryDate"
+        | "paymentMethod"
+        | "isPaid"
+        | "notes"
+        | "subtotalAmount"
+        | "discountAmount"
+        | "totalAmount"
+        | "isActive"
       >
     >,
-  ): Order | null {
-    const existing = orders.get(id);
+  ): Promise<Order | null> {
+    const [row] = await db
+      .update(ordersTable)
+      .set({
+        clientId: input.clientId,
+        customerNameSnapshot: input.customerNameSnapshot,
+        status: input.status,
+        channel: input.channel,
+        deliveryDate: input.deliveryDate,
+        paymentMethod: input.paymentMethod,
+        isPaid: input.isPaid,
+        notes: input.notes,
+        subtotalAmount: input.subtotalAmount,
+        discountAmount: input.discountAmount,
+        totalAmount: input.totalAmount,
+        isActive: input.isActive,
+        updatedAt: new Date(),
+      })
+      .where(eq(ordersTable.id, id))
+      .returning();
 
-    if (!existing) {
-      return null;
-    }
-
-    const updated: Order = {
-      ...existing,
-      ...input,
-      updatedAt: new Date().toISOString(),
-    };
-
-    orders.set(id, updated);
-
-    return updated;
+    return row ? mapRowToOrder(row) : null;
   },
 
-  deactivateOrder(id: string): Order | null {
-    const existing = orders.get(id);
+  async deactivateOrder(id: string): Promise<Order | null> {
+    const [row] = await db
+      .update(ordersTable)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(ordersTable.id, id))
+      .returning();
 
-    if (!existing) {
-      return null;
-    }
+    return row ? mapRowToOrder(row) : null;
+  },
 
-    const updated: Order = {
-      ...existing,
-      isActive: false,
-      updatedAt: new Date().toISOString(),
-    };
+  async reactivateOrder(id: string): Promise<Order | null> {
+    const [row] = await db
+      .update(ordersTable)
+      .set({ isActive: true, updatedAt: new Date() })
+      .where(eq(ordersTable.id, id))
+      .returning();
 
-    orders.set(id, updated);
+    return row ? mapRowToOrder(row) : null;
+  },
 
-    return updated;
+  async hardDeleteOrder(id: string): Promise<boolean> {
+    await db.delete(orderItemsTable).where(eq(orderItemsTable.orderId, id));
+
+    const [row] = await db
+      .delete(ordersTable)
+      .where(eq(ordersTable.id, id))
+      .returning();
+
+    return !!row;
   },
 };

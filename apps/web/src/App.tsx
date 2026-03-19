@@ -5,7 +5,7 @@ import { APP_ROUTES } from "./constants/routes";
 import { CategoriesPage } from "./pages/categories/categories-page";
 import { ClientsPage } from "./pages/clients/clients-page";
 import { IngredientsPage } from "./pages/ingredients/ingredients-page";
-import { FinancePage } from "./pages/ingredients/finance-page";
+import { FinancePage } from "./pages/finance/finance-page";
 import { OrdersPage } from "./pages/orders/orders-page";
 import { ProductionPage } from "./pages/production/production-page";
 import { ProductsPage } from "./pages/products/products-page";

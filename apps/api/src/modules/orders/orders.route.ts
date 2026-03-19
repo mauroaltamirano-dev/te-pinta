@@ -13,6 +13,13 @@ export async function ordersRoute(app: FastifyInstance) {
     ordersController.updateOrderStatus,
   );
   app.delete(`${env.apiPrefix}/orders/:id`, ordersController.deactivateOrder);
+  app.patch(
+    `${env.apiPrefix}/orders/:id/reactivate`,
+    ordersController.reactivateOrder,
+  );
+  app.delete(
+    `${env.apiPrefix}/orders/:id/hard-delete`,
+    ordersController.hardDeleteOrder,
+  );
   app.get(`${env.apiPrefix}/orders-summary`, ordersController.getSummary);
-  
 }

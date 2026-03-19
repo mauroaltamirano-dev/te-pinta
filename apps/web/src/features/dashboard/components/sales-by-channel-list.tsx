@@ -1,53 +1,126 @@
-// src/features/dashboard/components/sales-by-channel-list.tsx
 import type { SalesByPaymentMethodItem } from "../../../services/api/dashboard.api";
 
 type Props = {
   data: SalesByPaymentMethodItem[];
 };
 
-function getChannelLabel(value: string) {
-  const labels: Record<string, string> = {
-    store: "Local",
-    whatsapp: "WhatsApp",
-    phone: "Teléfono",
-    instagram: "Instagram",
-    web: "Web",
-  };
+const CHANNEL_LABELS: Record<string, string> = {
+  whatsapp: "WhatsApp",
+  instagram: "Instagram",
+  local: "Local",
+  phone: "Teléfono",
+  other: "Otro",
+};
 
-  return labels[value] ?? value;
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+    notation: "compact",
+  }).format(value);
 }
 
 export function SalesByChannelList({ data }: Props) {
+  const total = data.reduce((sum, item) => sum + item.total, 0);
+
   return (
-    <section className="overflow-hidden rounded-3xl border border-sombra bg-crema shadow-sm">
-      <div className="border-b border-sombra px-5 py-4">
-        <h3 className="text-lg font-bold text-bordo">Ventas por canal</h3>
-        <p className="mt-1 text-sm text-cafe/75">
-          Distribución de ventas según el canal de ingreso del pedido.
+    <div
+      className="overflow-hidden rounded-2xl border"
+      style={{
+        background: "var(--surface)",
+        borderColor: "var(--border)",
+        boxShadow: "var(--shadow-sm)",
+      }}
+    >
+      {/* Header */}
+      <div
+        className="border-b px-5 py-4"
+        style={{
+          borderColor: "var(--border-soft)",
+          background: "var(--surface-2)",
+        }}
+      >
+        <h3
+          className="text-sm font-semibold"
+          style={{ color: "var(--foreground)" }}
+        >
+          Ventas por canal
+        </h3>
+        <p
+          className="mt-0.5 text-xs"
+          style={{ color: "var(--foreground-muted)" }}
+        >
+          Distribución del período
         </p>
       </div>
 
-      <div className="space-y-2 p-4">
-        {data.length ? (
-          data.map((item) => (
-            <div
-              key={item.paymentMethod}
-              className="flex items-center justify-between rounded-2xl border border-sombra bg-white/50 px-4 py-3 transition hover:bg-arena/40"
-            >
-              <p className="text-sm font-semibold text-cafe">
-                {getChannelLabel(item.paymentMethod)}
-              </p>
-              <p className="text-sm font-bold text-bordo">
-                ${item.total.toLocaleString("es-AR")}
-              </p>
-            </div>
-          ))
-        ) : (
-          <p className="py-6 text-center text-sm text-cafe/60">
+      {/* Lista */}
+      <div className="space-y-1 p-3">
+        {data.length === 0 ? (
+          <p
+            className="py-8 text-center text-sm"
+            style={{ color: "var(--foreground-muted)" }}
+          >
             Sin datos en el período seleccionado.
           </p>
+        ) : (
+          data.map((item) => {
+            const pct = total > 0 ? Math.round((item.total / total) * 100) : 0;
+            return (
+              <div
+                key={item.paymentMethod}
+                className="rounded-xl px-3 py-2.5 transition"
+                onMouseEnter={(e) =>
+                  ((e.currentTarget as HTMLDivElement).style.background =
+                    "var(--surface-hover)")
+                }
+                onMouseLeave={(e) =>
+                  ((e.currentTarget as HTMLDivElement).style.background =
+                    "transparent")
+                }
+              >
+                <div className="flex items-center justify-between">
+                  <p
+                    className="text-xs font-semibold"
+                    style={{ color: "var(--foreground)" }}
+                  >
+                    {CHANNEL_LABELS[item.paymentMethod] ?? item.paymentMethod}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-xs tabular-nums"
+                      style={{ color: "var(--foreground-muted)" }}
+                    >
+                      {pct}%
+                    </span>
+                    <span
+                      className="text-xs font-bold tabular-nums"
+                      style={{ color: "var(--foreground)" }}
+                    >
+                      {formatMoney(item.total)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Barra proporcional */}
+                <div
+                  className="mt-1.5 h-1.5 overflow-hidden rounded-full"
+                  style={{ background: "var(--surface-3)" }}
+                >
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${pct}%`,
+                      background: "var(--accent-strong)",
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
-    </section>
+    </div>
   );
 }

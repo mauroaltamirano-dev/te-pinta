@@ -14,8 +14,8 @@ function createServiceError(statusCode: number, message: string): ServiceError {
 }
 
 export const categoriesService = {
-  async getAll() {
-    return await categoriesRepository.findAll();
+  async getAll(includeInactive = false) {
+    return await categoriesRepository.findAll({ includeInactive });
   },
 
   async getById(id: string) {
@@ -54,5 +54,9 @@ export const categoriesService = {
 
   async deactivate(id: string) {
     return await categoriesRepository.deactivate(id);
+  },
+
+  async reactivate(id: string) {
+    return await categoriesRepository.reactivate(id);
   },
 };

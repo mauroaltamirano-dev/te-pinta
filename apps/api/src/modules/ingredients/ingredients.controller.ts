@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
+import { NotFoundError } from "../../shared/errors/app-error";
 import { ingredientsMapper } from "./ingredients.mapper";
 import {
   ingredientIdParamsSchema,
@@ -7,24 +8,6 @@ import {
   updateIngredientSchema,
 } from "./ingredients.schema";
 import { ingredientsService } from "./ingredients.service";
-
-function formatZodIssues(issues: Array<{ path: PropertyKey[]; message: string }>) {
-  return issues.map((issue) => ({
-    field: issue.path.join("."),
-    message: issue.message,
-  }));
-}
-
-function isServiceError(
-  error: unknown,
-): error is { statusCode: number; message: string } {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "statusCode" in error &&
-    "message" in error
-  );
-}
 
 export const ingredientsController = {
   async getAll(_request: FastifyRequest, reply: FastifyReply) {
@@ -37,120 +20,51 @@ export const ingredientsController = {
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = ingredientIdParamsSchema.safeParse(request.params);
+    const { id } = ingredientIdParamsSchema.parse(request.params);
 
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: "Invalid route params",
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
-    }
-
-    const ingredient = await ingredientsService.getById(paramsResult.data.id);
+    const ingredient = await ingredientsService.getById(id);
 
     if (!ingredient) {
-      return reply.status(404).send({
-        message: "Ingredient not found",
-      });
+      throw new NotFoundError("Ingredient not found");
     }
 
     return reply.send(ingredientsMapper.toResponse(ingredient));
   },
 
   async create(request: FastifyRequest, reply: FastifyReply) {
-    const bodyResult = createIngredientSchema.safeParse(request.body);
+    const body = createIngredientSchema.parse(request.body);
 
-    if (!bodyResult.success) {
-      return reply.status(400).send({
-        message: "Invalid request body",
-        issues: formatZodIssues(bodyResult.error.issues),
-      });
-    }
+    const ingredient = await ingredientsService.create(body);
 
-    try {
-      const ingredient = await ingredientsService.create(bodyResult.data);
-
-      return reply.status(201).send(ingredientsMapper.toResponse(ingredient));
-    } catch (error) {
-      if (isServiceError(error)) {
-        return reply.status(error.statusCode).send({
-          message: error.message,
-        });
-      }
-
-      return reply.status(500).send({
-        message: "Unexpected error",
-      });
-    }
+    return reply.status(201).send(ingredientsMapper.toResponse(ingredient));
   },
 
   async update(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = ingredientIdParamsSchema.safeParse(request.params);
+    const { id } = ingredientIdParamsSchema.parse(request.params);
+    const body = updateIngredientSchema.parse(request.body);
 
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: "Invalid route params",
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
+    const ingredient = await ingredientsService.update(id, body);
+
+    if (!ingredient) {
+      throw new NotFoundError("Ingredient not found");
     }
 
-    const bodyResult = updateIngredientSchema.safeParse(request.body);
-
-    if (!bodyResult.success) {
-      return reply.status(400).send({
-        message: "Invalid request body",
-        issues: formatZodIssues(bodyResult.error.issues),
-      });
-    }
-
-    try {
-      const ingredient = await ingredientsService.update(
-        paramsResult.data.id,
-        bodyResult.data,
-      );
-
-      if (!ingredient) {
-        return reply.status(404).send({
-          message: "Ingredient not found",
-        });
-      }
-
-      return reply.send(ingredientsMapper.toResponse(ingredient));
-    } catch (error) {
-      if (isServiceError(error)) {
-        return reply.status(error.statusCode).send({
-          message: error.message,
-        });
-      }
-
-      return reply.status(500).send({
-        message: "Unexpected error",
-      });
-    }
+    return reply.send(ingredientsMapper.toResponse(ingredient));
   },
 
   async deactivate(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = ingredientIdParamsSchema.safeParse(request.params);
+    const { id } = ingredientIdParamsSchema.parse(request.params);
 
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: "Invalid route params",
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
-    }
-
-    const ingredient = await ingredientsService.deactivate(paramsResult.data.id);
+    const ingredient = await ingredientsService.deactivate(id);
 
     if (!ingredient) {
-      return reply.status(404).send({
-        message: "Ingredient not found",
-      });
+      throw new NotFoundError("Ingredient not found");
     }
 
     return reply.send(ingredientsMapper.toResponse(ingredient));

@@ -24,8 +24,18 @@ export function getRecipes() {
   return apiClient.get<Recipe[]>("/recipes");
 }
 
-export function getRecipeByProductId(productId: string) {
-  return apiClient.get<Recipe>(`/recipes/product/${productId}`);
+// ── nuevo ──────────────────────────────────────────────────────
+export function getAllRecipeItems() {
+  return apiClient.get<RecipeItem[]>("/recipes/items");
+}
+
+export function getRecipeByProductId(
+  productId: string,
+  options?: { includeInactive?: boolean },
+) {
+  return apiClient.get<Recipe>(`/recipes/product/${productId}`, {
+    params: { includeInactive: options?.includeInactive },
+  });
 }
 
 export function getRecipeItems(recipeId: string) {
@@ -49,4 +59,35 @@ export function createRecipeItem(
   },
 ) {
   return apiClient.post<RecipeItem>(`/recipes/${recipeId}/items`, data);
+}
+
+export function updateRecipe(
+  recipeId: string,
+  data: { yieldQuantity?: number; notes?: string },
+) {
+  return apiClient.patch<Recipe>(`/recipes/${recipeId}`, data);
+}
+
+export function deactivateRecipe(recipeId: string) {
+  return apiClient.delete<Recipe>(`/recipes/${recipeId}`);
+}
+
+export function reactivateRecipe(recipeId: string) {
+  return apiClient.patch<Recipe>(`/recipes/${recipeId}/reactivate`, {});
+}
+
+export function updateRecipeItem(
+  recipeId: string,
+  itemId: string,
+  data: {
+    ingredientId?: string;
+    quantity?: number;
+    unit?: "kg" | "g" | "l" | "ml" | "unit";
+  },
+) {
+  return apiClient.patch<RecipeItem>(`/recipes/${recipeId}/items/${itemId}`, data);
+}
+
+export function deleteRecipeItem(recipeId: string, itemId: string) {
+  return apiClient.delete<RecipeItem>(`/recipes/${recipeId}/items/${itemId}`);
 }

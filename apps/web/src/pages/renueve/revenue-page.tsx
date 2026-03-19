@@ -1,5 +1,5 @@
 import { OrdersRevenueTable } from "../../features/orders/orders-revenue-table";
-import { RevenueSummaryCards } from "../../features/dashboard/revenue-summary-cards";
+import { RevenueSummaryCards } from "../../features/dashboard/components/revenue-summary-cards";
 
 export function RevenuePage() {
   return (
@@ -23,7 +23,8 @@ export function RevenuePage() {
         <div className="border-b border-sombra px-5 py-4">
           <h2 className="text-lg font-bold text-bordo">Pedidos entregados</h2>
           <p className="mt-1 text-sm text-cafe/75">
-            Pedidos contabilizados como ingreso en el resumen actual del negocio.
+            Pedidos contabilizados como ingreso en el resumen actual del
+            negocio.
           </p>
         </div>
 

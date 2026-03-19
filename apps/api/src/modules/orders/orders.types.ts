@@ -1,28 +1,34 @@
-import type { z } from 'zod';
+import type { z } from "zod";
 
 import type {
   createOrderSchema,
   orderChannelSchema,
   orderStatusSchema,
+  paymentMethodSchema,
   updateOrderSchema,
   updateOrderStatusSchema,
-} from './orders.schema';
+} from "./orders.schema";
 
 export type OrderStatus = z.infer<typeof orderStatusSchema>;
 export type OrderChannel = z.infer<typeof orderChannelSchema>;
+export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
 
 export type Order = {
   id: string;
   clientId: string | null;
+  customerNameSnapshot: string | null;
   status: OrderStatus;
   channel: OrderChannel;
+  deliveryDate: Date | null;
+  paymentMethod: PaymentMethod;
+  isPaid: boolean;
   notes: string | null;
   subtotalAmount: number;
   discountAmount: number;
   totalAmount: number;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type OrderItem = {
@@ -34,8 +40,8 @@ export type OrderItem = {
   unitSalePriceSnapshot: number;
   unitCostSnapshot: number;
   lineSubtotal: number;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type OrdersSummary = {

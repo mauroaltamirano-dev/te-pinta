@@ -9,115 +9,127 @@ import {
 import { clientsService } from './clients.service';
 
 function formatZodIssues(issues: Array<{ path: PropertyKey[]; message: string }>) {
-  return issues.map((issue) => ({
-    field: issue.path.join('.'),
-    message: issue.message,
-  }));
+  return issues.map((i) => ({ field: i.path.join('.'), message: i.message }));
+}
+
+function isServiceError(e: unknown): e is { statusCode: number; message: string } {
+  return (
+    typeof e === 'object' && e !== null && 'statusCode' in e && 'message' in e
+  );
 }
 
 export const clientsController = {
-  getAll(_request: FastifyRequest, reply: FastifyReply) {
-    const clients = clientsService.getAll();
-
+  async getAll(
+    request: FastifyRequest<{ Querystring: { includeInactive?: string } }>,
+    reply: FastifyReply,
+  ) {
+    const includeInactive = request.query.includeInactive === 'true';
+    const clients = await clientsService.getAll({ includeInactive });
     return reply.send(clientsMapper.toResponseList(clients));
   },
 
-  getById(
+  async getById(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = clientIdParamsSchema.safeParse(request.params);
-
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid route params',
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
+    const params = clientIdParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({ message: 'Invalid params', issues: formatZodIssues(params.error.issues) });
     }
-
-    const client = clientsService.getById(paramsResult.data.id);
-
-    if (!client) {
-      return reply.status(404).send({
-        message: 'Client not found',
-      });
-    }
-
+    const client = await clientsService.getById(params.data.id);
+    if (!client) return reply.status(404).send({ message: 'Client not found' });
     return reply.send(clientsMapper.toResponse(client));
   },
 
-  create(
-    request: FastifyRequest,
-    reply: FastifyReply,
-  ) {
-    const bodyResult = createClientSchema.safeParse(request.body);
-
-    if (!bodyResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid request body',
-        issues: formatZodIssues(bodyResult.error.issues),
-      });
-    }
-
-    const client = clientsService.create(bodyResult.data);
-
-    return reply.status(201).send(clientsMapper.toResponse(client));
-  },
-
-  update(
+  async getStats(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = clientIdParamsSchema.safeParse(request.params);
-
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid route params',
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
+    const params = clientIdParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({ message: 'Invalid params', issues: formatZodIssues(params.error.issues) });
     }
-
-    const bodyResult = updateClientSchema.safeParse(request.body);
-
-    if (!bodyResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid request body',
-        issues: formatZodIssues(bodyResult.error.issues),
+    try {
+      const result = await clientsService.getClientStats(params.data.id);
+      return reply.send({
+        client: clientsMapper.toResponse(result.client),
+        stats:  result.stats,
+        orders: result.orders,
       });
+    } catch (error) {
+      if (isServiceError(error)) {
+        return reply.status(error.statusCode).send({ message: error.message });
+      }
+      console.error('[clients] getStats error:', error);
+      return reply.status(500).send({ message: 'Unexpected error' });
     }
+  },
 
-    const client = clientsService.update(paramsResult.data.id, bodyResult.data);
-
-    if (!client) {
-      return reply.status(404).send({
-        message: 'Client not found',
-      });
+  async create(request: FastifyRequest, reply: FastifyReply) {
+    const body = createClientSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send({ message: 'Invalid body', issues: formatZodIssues(body.error.issues) });
     }
+    try {
+      const client = await clientsService.create(body.data);
+      return reply.status(201).send(clientsMapper.toResponse(client));
+    } catch (error) {
+      if (isServiceError(error)) {
+        return reply.status(error.statusCode).send({ message: error.message });
+      }
+      console.error('[clients] create error:', error);
+      return reply.status(500).send({ message: 'Unexpected error' });
+    }
+  },
 
+  async update(
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply,
+  ) {
+    const params = clientIdParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({ message: 'Invalid params', issues: formatZodIssues(params.error.issues) });
+    }
+    const body = updateClientSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send({ message: 'Invalid body', issues: formatZodIssues(body.error.issues) });
+    }
+    try {
+      const client = await clientsService.update(params.data.id, body.data);
+      if (!client) return reply.status(404).send({ message: 'Client not found' });
+      return reply.send(clientsMapper.toResponse(client));
+    } catch (error) {
+      if (isServiceError(error)) {
+        return reply.status(error.statusCode).send({ message: error.message });
+      }
+      console.error('[clients] update error:', error);
+      return reply.status(500).send({ message: 'Unexpected error' });
+    }
+  },
+
+  async deactivate(
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply,
+  ) {
+    const params = clientIdParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({ message: 'Invalid params', issues: formatZodIssues(params.error.issues) });
+    }
+    const client = await clientsService.deactivate(params.data.id);
+    if (!client) return reply.status(404).send({ message: 'Client not found' });
     return reply.send(clientsMapper.toResponse(client));
   },
 
-  deactivate(
+  async reactivate(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = clientIdParamsSchema.safeParse(request.params);
-
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid route params',
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
+    const params = clientIdParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({ message: 'Invalid params', issues: formatZodIssues(params.error.issues) });
     }
-
-    const client = clientsService.deactivate(paramsResult.data.id);
-
-    if (!client) {
-      return reply.status(404).send({
-        message: 'Client not found',
-      });
-    }
-
+    const client = await clientsService.reactivate(params.data.id);
+    if (!client) return reply.status(404).send({ message: 'Client not found' });
     return reply.send(clientsMapper.toResponse(client));
   },
 };

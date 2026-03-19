@@ -1,90 +1,184 @@
 import { useMemo } from "react";
-
 import { useOrders } from "./use-orders";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 0,
   }).format(value);
 }
 
 export function OrdersRevenueTable() {
   const { data, isLoading } = useOrders();
 
-  const deliveredOrders = useMemo(() => {
-    if (!data) return [];
+  const deliveredOrders = useMemo(
+    () => data?.filter((o) => o.status === "delivered") ?? [],
+    [data],
+  );
 
-    return data.filter((order) => order.status === "delivered");
-  }, [data]);
+  const totalRevenue = useMemo(
+    () => deliveredOrders.reduce((sum, o) => sum + o.totalAmount, 0),
+    [deliveredOrders],
+  );
 
   if (isLoading) {
     return (
-      <div className="px-5 py-6">
-        <p className="text-sm text-cafe/70">Cargando pedidos entregados...</p>
+      <div
+        className="flex items-center justify-center rounded-2xl border px-6 py-12 text-sm"
+        style={{
+          background: "var(--surface)",
+          borderColor: "var(--border)",
+          color: "var(--foreground-muted)",
+        }}
+      >
+        <span className="animate-pulse">Cargando pedidos entregados…</span>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-[600px] w-full">
-        <thead className="bg-arena/70">
-          <tr>
-            <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
-              Fecha
-            </th>
-            <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
-              Cliente
-            </th>
-            <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
-              Estado
-            </th>
-            <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
-              Total
-            </th>
-            <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
-              Notas
-            </th>
-          </tr>
-        </thead>
+    <div
+      className="overflow-hidden rounded-2xl border"
+      style={{
+        background: "var(--surface)",
+        borderColor: "var(--border)",
+        boxShadow: "var(--shadow-sm)",
+      }}
+    >
+      {/* Header */}
+      <div
+        className="flex items-center justify-between border-b px-5 py-4"
+        style={{
+          borderColor: "var(--border-soft)",
+          background: "var(--surface-2)",
+        }}
+      >
+        <div>
+          <h2
+            className="text-sm font-semibold"
+            style={{ color: "var(--foreground)" }}
+          >
+            Pedidos entregados
+          </h2>
+          <p
+            className="mt-0.5 text-xs"
+            style={{ color: "var(--foreground-muted)" }}
+          >
+            {deliveredOrders.length} entregado
+            {deliveredOrders.length !== 1 ? "s" : ""}
+          </p>
+        </div>
 
-        <tbody>
-          {deliveredOrders.map((order) => (
-            <tr key={order.id} className="transition hover:bg-arena/30">
-              <td className="border-b border-sombra px-5 py-4 text-sm text-cafe">
-                {new Date(order.createdAt).toLocaleDateString("es-AR")}
-              </td>
-              <td className="border-b border-sombra px-5 py-4 text-sm font-medium text-bordo">
-                {order.customerNameSnapshot ?? "Consumidor final"}
-              </td>
-              <td className="border-b border-sombra px-5 py-4 text-sm">
-                <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                  Entregado
-                </span>
-              </td>
-              <td className="border-b border-sombra px-5 py-4 text-sm font-semibold text-cafe">
-                {formatMoney(order.totalAmount)}
-              </td>
-              <td className="border-b border-sombra px-5 py-4 text-sm text-cafe/70">
-                {order.notes ?? "—"}
-              </td>
-            </tr>
-          ))}
+        {deliveredOrders.length > 0 && (
+          <div className="text-right">
+            <p
+              className="text-xs font-semibold uppercase tracking-wider"
+              style={{ color: "var(--foreground-muted)" }}
+            >
+              Total facturado
+            </p>
+            <p
+              className="mt-0.5 text-base font-bold tabular-nums"
+              style={{ color: "var(--primary)" }}
+            >
+              {formatMoney(totalRevenue)}
+            </p>
+          </div>
+        )}
+      </div>
 
-          {!deliveredOrders.length ? (
-            <tr>
-              <td
-                colSpan={5}
-                className="px-5 py-10 text-center text-sm text-cafe/65"
-              >
-                Todavía no hay pedidos entregados registrados.
-              </td>
+      {/* Tabla */}
+      <div className="overflow-x-auto">
+        <table className="min-w-[500px] w-full text-sm">
+          <thead>
+            <tr style={{ background: "var(--surface-2)" }}>
+              {["Fecha", "Cliente", "Total", "Notas"].map((col) => (
+                <th
+                  key={col}
+                  className="border-b px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                  style={{
+                    borderColor: "var(--border-soft)",
+                    color: "var(--foreground-muted)",
+                  }}
+                >
+                  {col}
+                </th>
+              ))}
             </tr>
-          ) : null}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {deliveredOrders.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={4}
+                  className="px-5 py-12 text-center text-sm"
+                  style={{ color: "var(--foreground-muted)" }}
+                >
+                  Todavía no hay pedidos entregados.
+                </td>
+              </tr>
+            ) : (
+              deliveredOrders.map((order) => (
+                <tr
+                  key={order.id}
+                  className="transition"
+                  onMouseEnter={(e) =>
+                    ((e.currentTarget as HTMLTableRowElement).style.background =
+                      "var(--surface-hover)")
+                  }
+                  onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLTableRowElement).style.background =
+                      "transparent")
+                  }
+                >
+                  <td
+                    className="border-b px-5 py-3.5 text-xs tabular-nums"
+                    style={{
+                      borderColor: "var(--border-soft)",
+                      color: "var(--foreground-muted)",
+                    }}
+                  >
+                    {new Date(order.createdAt).toLocaleDateString("es-AR")}
+                  </td>
+                  <td
+                    className="border-b px-5 py-3.5 font-medium"
+                    style={{
+                      borderColor: "var(--border-soft)",
+                      color: "var(--foreground)",
+                    }}
+                  >
+                    {order.customerNameSnapshot ?? "Consumidor final"}
+                  </td>
+                  <td
+                    className="border-b px-5 py-3.5 font-semibold tabular-nums"
+                    style={{
+                      borderColor: "var(--border-soft)",
+                      color: "var(--foreground)",
+                    }}
+                  >
+                    {formatMoney(order.totalAmount)}
+                  </td>
+                  <td
+                    className="border-b px-5 py-3.5 text-xs"
+                    style={{
+                      borderColor: "var(--border-soft)",
+                      color: "var(--foreground-muted)",
+                    }}
+                  >
+                    {order.notes ?? (
+                      <span style={{ color: "var(--foreground-faint)" }}>
+                        —
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

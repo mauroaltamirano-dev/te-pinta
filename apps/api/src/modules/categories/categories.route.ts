@@ -9,4 +9,5 @@ export async function categoriesRoute(app: FastifyInstance) {
   app.post(`${env.apiPrefix}/categories`, categoriesController.create);
   app.patch(`${env.apiPrefix}/categories/:id`, categoriesController.update);
   app.delete(`${env.apiPrefix}/categories/:id`, categoriesController.deactivate);
+  app.patch(`${env.apiPrefix}/categories/:id/reactivate`, categoriesController.reactivate);
 }

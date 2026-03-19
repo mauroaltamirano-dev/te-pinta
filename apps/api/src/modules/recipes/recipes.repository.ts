@@ -42,6 +42,12 @@ export const recipesRepository = {
     return rows.map(mapRowToRecipe);
   },
 
+  // ── nuevo ────────────────────────────────────────────────────
+  async findAllRecipeItems(): Promise<RecipeItem[]> {
+    const rows = await db.select().from(recipeItemsTable);
+    return rows.map(mapRowToRecipeItem);
+  },
+
   async findRecipeById(id: string): Promise<Recipe | null> {
     const [row] = await db
       .select()
@@ -51,11 +57,23 @@ export const recipesRepository = {
     return row ? mapRowToRecipe(row) : null;
   },
 
-  async findRecipeByProductId(productId: string): Promise<Recipe | null> {
+  async findRecipeByProductId(
+    productId: string,
+    options?: { includeInactive?: boolean },
+  ): Promise<Recipe | null> {
+    const includeInactive = options?.includeInactive ?? false;
+
     const [row] = await db
       .select()
       .from(recipesTable)
-      .where(and(eq(recipesTable.productId, productId), eq(recipesTable.isActive, true)));
+      .where(
+        includeInactive
+          ? eq(recipesTable.productId, productId)
+          : and(
+              eq(recipesTable.productId, productId),
+              eq(recipesTable.isActive, true),
+            ),
+      );
 
     return row ? mapRowToRecipe(row) : null;
   },
@@ -77,10 +95,7 @@ export const recipesRepository = {
   async updateRecipe(id: string, input: UpdateRecipeInput): Promise<Recipe | null> {
     const [row] = await db
       .update(recipesTable)
-      .set({
-        ...input,
-        updatedAt: new Date(),
-      })
+      .set({ ...input, updatedAt: new Date() })
       .where(eq(recipesTable.id, id))
       .returning();
 
@@ -90,10 +105,17 @@ export const recipesRepository = {
   async deactivateRecipe(id: string): Promise<Recipe | null> {
     const [row] = await db
       .update(recipesTable)
-      .set({
-        isActive: false,
-        updatedAt: new Date(),
-      })
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(recipesTable.id, id))
+      .returning();
+
+    return row ? mapRowToRecipe(row) : null;
+  },
+
+  async reactivateRecipe(id: string): Promise<Recipe | null> {
+    const [row] = await db
+      .update(recipesTable)
+      .set({ isActive: true, updatedAt: new Date() })
       .where(eq(recipesTable.id, id))
       .returning();
 
@@ -155,10 +177,7 @@ export const recipesRepository = {
   ): Promise<RecipeItem | null> {
     const [row] = await db
       .update(recipeItemsTable)
-      .set({
-        ...input,
-        updatedAt: new Date(),
-      })
+      .set({ ...input, updatedAt: new Date() })
       .where(eq(recipeItemsTable.id, itemId))
       .returning();
 

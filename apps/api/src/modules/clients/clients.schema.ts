@@ -1,3 +1,12 @@
+// ─────────────────────────────────────────────────────────────
+// DRIZZLE DB SCHEMA — agregar esta tabla en tu db/schema.ts
+// ─────────────────────────────────────────────────────────────
+//
+
+// ─────────────────────────────────────────────────────────────
+// ZOD VALIDATION SCHEMAS
+// ─────────────────────────────────────────────────────────────
+
 import { z } from 'zod';
 
 export const clientIdParamsSchema = z.object({
@@ -5,16 +14,14 @@ export const clientIdParamsSchema = z.object({
 });
 
 export const createClientSchema = z.object({
-  name: z.string().trim().min(1, 'Client name is required'),
-  phone: z.string().trim().min(1, 'Client phone is required'),
-  email: z.email('Email must be valid').optional().or(z.literal('')),
+  name:    z.string().trim().min(1, 'El nombre es obligatorio'),
+  phone:   z.string().trim().optional(),
   address: z.string().trim().optional(),
-  notes: z.string().trim().optional(),
+  notes:   z.string().trim().optional(),
 });
 
-export const updateClientSchema = createClientSchema.partial().refine(
-  (data) => Object.keys(data).length > 0,
-  {
+export const updateClientSchema = createClientSchema
+  .partial()
+  .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
-  },
-);
+  });

@@ -45,38 +45,43 @@ function convertToBaseUnit(quantity: number, fromUnit: string, baseUnit: string)
   );
 }
 
-function getRecipeForProduct(productId: string) {
-  const product = productsRepository.findById(productId);
+async function getRecipeForProduct(productId: string) {
+  const productResult = await productsRepository.findById(productId);
 
-  if (!product) {
+  if (!productResult) {
     throw createServiceError(404, 'Product not found');
   }
 
-  const recipe = recipesRepository.findRecipeByProductId(productId);
+  const recipe = await recipesRepository.findRecipeByProductId(productId);
 
   if (!recipe || !recipe.isActive) {
     throw createServiceError(404, 'Active recipe not found for product');
   }
 
-  return { product, recipe };
+  return {
+    product: productResult.product,
+    recipe,
+  };
 }
 
-function buildCostBreakdown(productId: string): {
-  product: ReturnType<typeof productsRepository.findById>;
+async function buildCostBreakdown(productId: string): Promise<{
+  product: Awaited<ReturnType<typeof getRecipeForProduct>>['product'];
   recipeId: string;
   yieldQuantity: number;
   items: CostBreakdownItem[];
   totalUnitCost: number;
-} {
-  const { product, recipe } = getRecipeForProduct(productId);
-  const recipeItems = recipesRepository.findItemsByRecipeId(recipe.id);
+}> {
+  const { product, recipe } = await getRecipeForProduct(productId);
+  const recipeItems = await recipesRepository.findItemsByRecipeId(recipe.id);
 
   if (recipeItems.length === 0) {
     throw createServiceError(400, 'Recipe has no items');
   }
 
-  const items: CostBreakdownItem[] = recipeItems.map((recipeItem) => {
-    const ingredient = ingredientsRepository.findById(recipeItem.ingredientId);
+  const items: CostBreakdownItem[] = [];
+
+  for (const recipeItem of recipeItems) {
+    const ingredient = await ingredientsRepository.findById(recipeItem.ingredientId);
 
     if (!ingredient) {
       throw createServiceError(400, `Ingredient ${recipeItem.ingredientId} not found`);
@@ -91,7 +96,7 @@ function buildCostBreakdown(productId: string): {
     const ingredientCostPerBaseUnit = ingredient.currentCost;
     const totalCost = normalizedQuantityInBaseUnit * ingredientCostPerBaseUnit;
 
-    return {
+    items.push({
       ingredientId: ingredient.id,
       ingredientName: ingredient.name,
       ingredientBaseUnit: ingredient.unit,
@@ -101,10 +106,11 @@ function buildCostBreakdown(productId: string): {
       ingredientCurrentCost: ingredient.currentCost,
       ingredientCostPerBaseUnit,
       totalCost,
-    };
-  });
+    });
+  }
 
-  const totalUnitCost = items.reduce((sum, item) => sum + item.totalCost, 0);
+  const totalRecipeCost = items.reduce((sum, item) => sum + item.totalCost, 0);
+  const totalUnitCost = totalRecipeCost / recipe.yieldQuantity;
 
   return {
     product,
@@ -115,21 +121,23 @@ function buildCostBreakdown(productId: string): {
   };
 }
 
-function buildRequirementsForProduct(productId: string, quantity: number): {
-  product: ReturnType<typeof productsRepository.findById>;
+async function buildRequirementsForProduct(productId: string, quantity: number): Promise<{
+  product: Awaited<ReturnType<typeof getRecipeForProduct>>['product'];
   recipeId: string;
   requestedQuantity: number;
   items: RequirementItem[];
-} {
-  const { product, recipe } = getRecipeForProduct(productId);
-  const recipeItems = recipesRepository.findItemsByRecipeId(recipe.id);
+}> {
+  const { product, recipe } = await getRecipeForProduct(productId);
+  const recipeItems = await recipesRepository.findItemsByRecipeId(recipe.id);
 
   if (recipeItems.length === 0) {
     throw createServiceError(400, 'Recipe has no items');
   }
 
-  const items: RequirementItem[] = recipeItems.map((recipeItem) => {
-    const ingredient = ingredientsRepository.findById(recipeItem.ingredientId);
+  const items: RequirementItem[] = [];
+
+  for (const recipeItem of recipeItems) {
+    const ingredient = await ingredientsRepository.findById(recipeItem.ingredientId);
 
     if (!ingredient) {
       throw createServiceError(400, `Ingredient ${recipeItem.ingredientId} not found`);
@@ -144,13 +152,13 @@ function buildRequirementsForProduct(productId: string, quantity: number): {
     const requiredQuantityInBaseUnit =
       (normalizedPerUnit * quantity) / recipe.yieldQuantity;
 
-    return {
+    items.push({
       ingredientId: ingredient.id,
       ingredientName: ingredient.name,
       ingredientBaseUnit: ingredient.unit,
       requiredQuantityInBaseUnit,
-    };
-  });
+    });
+  }
 
   return {
     product,
@@ -160,39 +168,39 @@ function buildRequirementsForProduct(productId: string, quantity: number): {
   };
 }
 
-
-
 export const productionService = {
-  getProductCost(productId: string) {
-    return buildCostBreakdown(productId);
+  async getProductCost(productId: string) {
+    return await buildCostBreakdown(productId);
   },
 
-  getProductRequirements(productId: string, input: ProductionRequirementInput) {
-    return buildRequirementsForProduct(productId, input.quantity);
+  async getProductRequirements(productId: string, input: ProductionRequirementInput) {
+    return await buildRequirementsForProduct(productId, input.quantity);
   },
 
-  getIngredientsNeededFromOrders() {
+  async getIngredientsNeededFromOrders() {
     const consolidated = new Map<string, RequirementItem>();
-    const activeOrders = ordersRepository.findAllOrders().filter((order) =>
-      order.isActive &&
-      (order.status === 'pending' || order.status === 'confirmed'),
+    const allOrders = await ordersRepository.findAllOrders();
+
+    const activeOrders = allOrders.filter(
+      (order) =>
+        order.isActive &&
+        (order.status === 'pending' || order.status === 'confirmed'),
     );
 
     let productsCalculated = 0;
 
     for (const order of activeOrders) {
-      const orderItems = ordersRepository.findItemsByOrderId(order.id);
+      const orderItems = await ordersRepository.findItemsByOrderId(order.id);
 
       for (const orderItem of orderItems) {
-        let result: ReturnType<typeof buildRequirementsForProduct>;
+        let result: Awaited<ReturnType<typeof buildRequirementsForProduct>>;
 
         try {
-          result = buildRequirementsForProduct(
+          result = await buildRequirementsForProduct(
             orderItem.productId,
             orderItem.quantity,
           );
         } catch {
-          // Skip products without an active recipe
           continue;
         }
 
@@ -223,11 +231,11 @@ export const productionService = {
     };
   },
 
-  getBatchRequirements(input: ProductionRequirementsBatchInput) {
+  async getBatchRequirements(input: ProductionRequirementsBatchInput) {
     const consolidated = new Map<string, RequirementItem>();
 
     for (const item of input.items) {
-      const result = buildRequirementsForProduct(item.productId, item.quantity);
+      const result = await buildRequirementsForProduct(item.productId, item.quantity);
 
       for (const requirement of result.items) {
         const existing = consolidated.get(requirement.ingredientId);

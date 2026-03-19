@@ -6,15 +6,14 @@ import type {
 } from './clients.schema';
 
 export type Client = {
-  id: string;
-  name: string;
-  phone: string;
-  email: string | null;
-  address: string | null;
-  notes: string | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  id:        string;
+  name:      string;
+  phone:     string | null;
+  address:   string | null;
+  notes:     string | null;
+  isActive:  boolean;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type CreateClientInput = z.infer<typeof createClientSchema>;

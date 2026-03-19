@@ -9,13 +9,13 @@ type FormData = {
   unit: "kg" | "g" | "l" | "ml" | "unit";
 };
 
-const UNIT_LABELS: Record<FormData["unit"], string> = {
-  kg: "Kilogramo (kg)",
-  g: "Gramo (g)",
-  l: "Litro (l)",
-  ml: "Mililitro (ml)",
-  unit: "Unidad (u)",
-};
+const UNIT_OPTIONS: { value: FormData["unit"]; label: string }[] = [
+  { value: "g", label: "Gramo (g)" },
+  { value: "kg", label: "Kilogramo (kg)" },
+  { value: "ml", label: "Mililitro (ml)" },
+  { value: "l", label: "Litro (l)" },
+  { value: "unit", label: "Unidad (u)" },
+];
 
 export function RecipeItemForm({ recipeId }: { recipeId: string }) {
   const {
@@ -24,10 +24,7 @@ export function RecipeItemForm({ recipeId }: { recipeId: string }) {
     reset,
     formState: { errors },
   } = useForm<FormData>({
-    defaultValues: {
-      unit: "g",
-      quantity: 1,
-    },
+    defaultValues: { unit: "g", quantity: 1 },
   });
 
   const { data: ingredients } = useIngredients();
@@ -43,113 +40,193 @@ export function RecipeItemForm({ recipeId }: { recipeId: string }) {
           unit: data.unit,
         },
       },
-      {
-        onSuccess: () =>
-          reset({
-            unit: "g",
-            quantity: 1,
-          }),
-      },
+      { onSuccess: () => reset({ unit: "g", quantity: 1 }) },
     );
   };
 
+  /* ── estilos compartidos ──────────────────────────────────── */
+  const fieldBase =
+    "w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition";
+  const fieldStyle = (hasError?: boolean) => ({
+    background: "var(--background)",
+    borderColor: hasError ? "var(--danger)" : "var(--border)",
+    color: "var(--foreground)",
+  });
+  const focusOn = (
+    e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
+    e.target.style.borderColor = "var(--primary)";
+    e.target.style.boxShadow = "0 0 0 3px var(--ring)";
+  };
+  const focusOff = (
+    e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>,
+    hasError?: boolean,
+  ) => {
+    e.target.style.borderColor = hasError ? "var(--danger)" : "var(--border)";
+    e.target.style.boxShadow = "none";
+  };
+
+  const labelStyle = { color: "var(--foreground-soft)" };
+
   return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
-      className="space-y-4 rounded-2xl border border-sombra bg-arena/40 p-4"
+    <div
+      className="overflow-hidden rounded-2xl border"
+      style={{
+        background: "var(--surface-2)",
+        borderColor: "var(--border-soft)",
+      }}
     >
-      <div>
-        <p className="text-sm font-semibold text-cafe">Agregar ingrediente a la receta</p>
-        <p className="mt-0.5 text-xs leading-5 text-cafe/70">
-          Seleccioná el ingrediente, indicá la cantidad y la unidad de medida
-          en la que se usa en esta receta.
+      {/* ── Header ──────────────────────────────────────────── */}
+      <div
+        className="border-b px-5 py-3"
+        style={{ borderColor: "var(--border-soft)" }}
+      >
+        <p
+          className="text-xs font-semibold uppercase tracking-widest"
+          style={{ color: "var(--foreground-muted)" }}
+        >
+          Agregar ingrediente
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="space-y-1 md:col-span-3">
-          <label htmlFor="item-ingredient" className="text-sm font-medium text-cafe">
-            Ingrediente
-          </label>
-          <select
-            id="item-ingredient"
-            {...register("ingredientId", {
-              required: "Debes seleccionar un ingrediente",
-            })}
-            className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-sm text-cafe outline-none transition focus:border-bordo"
+      {/* ── Form ────────────────────────────────────────────── */}
+      <form onSubmit={handleSubmit(onSubmit)} className="p-4">
+        {/* Fila: Ingrediente + Cantidad + Unidad + Botón */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_120px_140px_auto]">
+          {/* Ingrediente */}
+          <div className="space-y-1.5">
+            <label
+              htmlFor="item-ingredient"
+              className="block text-xs font-medium"
+              style={labelStyle}
+            >
+              Ingrediente <span style={{ color: "var(--danger)" }}>*</span>
+            </label>
+            <select
+              id="item-ingredient"
+              {...register("ingredientId", {
+                required: "Seleccioná un ingrediente",
+              })}
+              className={fieldBase}
+              style={fieldStyle(!!errors.ingredientId)}
+              onFocus={focusOn}
+              onBlur={(e) => focusOff(e, !!errors.ingredientId)}
+            >
+              <option value="">Seleccionar…</option>
+              {ingredients?.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.name}
+                </option>
+              ))}
+            </select>
+            {errors.ingredientId && (
+              <p className="text-xs" style={{ color: "var(--danger-text)" }}>
+                {errors.ingredientId.message}
+              </p>
+            )}
+          </div>
+
+          {/* Cantidad */}
+          <div className="space-y-1.5">
+            <label
+              htmlFor="item-quantity"
+              className="block text-xs font-medium"
+              style={labelStyle}
+            >
+              Cantidad <span style={{ color: "var(--danger)" }}>*</span>
+            </label>
+            <input
+              id="item-quantity"
+              type="number"
+              step="0.01"
+              min="0"
+              {...register("quantity", {
+                valueAsNumber: true,
+                required: "Obligatorio",
+                min: { value: 0.01, message: "Debe ser > 0" },
+              })}
+              placeholder="250"
+              className={fieldBase}
+              style={fieldStyle(!!errors.quantity)}
+              onFocus={focusOn}
+              onBlur={(e) => focusOff(e, !!errors.quantity)}
+            />
+            {errors.quantity && (
+              <p className="text-xs" style={{ color: "var(--danger-text)" }}>
+                {errors.quantity.message}
+              </p>
+            )}
+          </div>
+
+          {/* Unidad */}
+          <div className="space-y-1.5">
+            <label
+              htmlFor="item-unit"
+              className="block text-xs font-medium"
+              style={labelStyle}
+            >
+              Unidad
+            </label>
+            <select
+              id="item-unit"
+              {...register("unit")}
+              className={fieldBase}
+              style={fieldStyle()}
+              onFocus={focusOn}
+              onBlur={(e) => focusOff(e)}
+            >
+              {UNIT_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Botón — alineado al fondo de la fila */}
+          <div className="flex items-end">
+            <button
+              type="submit"
+              disabled={mutation.isPending}
+              className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              style={{
+                background: "var(--primary)",
+                color: "var(--primary-foreground)",
+              }}
+            >
+              {mutation.isPending ? "Agregando…" : "Agregar"}
+            </button>
+          </div>
+        </div>
+
+        {/* Feedback */}
+        {mutation.isError && (
+          <div
+            className="mt-3 rounded-xl border px-4 py-3 text-sm animate-fade-in"
+            style={{
+              background: "var(--danger-soft)",
+              borderColor: "var(--danger)",
+              color: "var(--danger-text)",
+            }}
           >
-            <option value="">Seleccionar ingrediente</option>
-            {ingredients?.map((ingredient) => (
-              <option key={ingredient.id} value={ingredient.id}>
-                {ingredient.name}
-              </option>
-            ))}
-          </select>
-          {errors.ingredientId ? (
-            <p className="text-xs text-red-700">{errors.ingredientId.message}</p>
-          ) : null}
-        </div>
-
-        <div className="space-y-1 md:col-span-1">
-          <label htmlFor="item-quantity" className="text-sm font-medium text-cafe">
-            Cantidad
-          </label>
-          <input
-            id="item-quantity"
-            type="number"
-            step="0.01"
-            min="0"
-            {...register("quantity", {
-              valueAsNumber: true,
-              required: "Debes ingresar la cantidad",
-            })}
-            placeholder="Ej: 250"
-            className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-sm text-cafe outline-none transition focus:border-bordo"
-          />
-          {errors.quantity ? (
-            <p className="text-xs text-red-700">{errors.quantity.message}</p>
-          ) : null}
-        </div>
-
-        <div className="space-y-1 md:col-span-2">
-          <label htmlFor="item-unit" className="text-sm font-medium text-cafe">
-            Unidad de medida
-          </label>
-          <select
-            id="item-unit"
-            {...register("unit")}
-            className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-sm text-cafe outline-none transition focus:border-bordo"
+            {mutation.error instanceof Error
+              ? mutation.error.message
+              : "Error al agregar el ingrediente."}
+          </div>
+        )}
+        {mutation.isSuccess && (
+          <div
+            className="mt-3 rounded-xl border px-4 py-3 text-sm animate-fade-in"
+            style={{
+              background: "var(--success-soft)",
+              borderColor: "var(--success)",
+              color: "var(--success-text)",
+            }}
           >
-            {Object.entries(UNIT_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <button
-        type="submit"
-        className="w-full rounded-2xl bg-bordo px-4 py-3 text-sm font-semibold text-crema transition hover:bg-cafe disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={mutation.isPending}
-      >
-        {mutation.isPending ? "Agregando..." : "Agregar ingrediente"}
-      </button>
-
-      {mutation.isError ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {mutation.error instanceof Error
-            ? mutation.error.message
-            : "Ocurrió un error al agregar el ingrediente"}
-        </div>
-      ) : null}
-
-      {mutation.isSuccess ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          Ingrediente agregado a la receta.
-        </div>
-      ) : null}
-    </form>
+            Ingrediente agregado correctamente.
+          </div>
+        )}
+      </form>
+    </div>
   );
 }

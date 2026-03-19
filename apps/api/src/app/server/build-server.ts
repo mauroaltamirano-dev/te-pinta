@@ -1,34 +1,20 @@
 import Fastify from "fastify";
-import cors from "@fastify/cors";
 
-import { env } from "../../config/env";
+import { buildLoggerOptions } from "../../config/logger.config";
 import { registerAppRoutes } from "../routes";
+import { registerCors } from "../plugins/cors";
+import { requestLoggingPlugin } from "../plugins/request-logging.plugin";
+import { errorHandlerPlugin } from "../plugins/error-handler.plugin";
 
 export function buildServer() {
   const app = Fastify({
-    logger: env.isDevelopment
-      ? {
-          level: "info",
-          transport: {
-            target: "pino-pretty",
-            options: {
-              colorize: true,
-              translateTime: "HH:MM:ss",
-              ignore: "pid,hostname",
-            },
-          },
-        }
-      : {
-          level: "info",
-        },
+    logger: buildLoggerOptions(),
+    disableRequestLogging: true,
   });
 
-  app.register(cors, {
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type"],
-  });
-
+  app.register(requestLoggingPlugin);
+  app.register(errorHandlerPlugin);
+  app.register(registerCors);
   app.register(registerAppRoutes);
 
   return app;

@@ -116,3 +116,57 @@ export const recipeItemsTable = pgTable("recipe_items", {
         .notNull()
         .defaultNow(),
 });
+
+export const ordersTable = pgTable("orders", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  clientId: uuid("client_id"),
+  customerNameSnapshot: text("customer_name_snapshot"),
+  status: text("status").notNull(),
+  channel: text("channel").notNull(),
+  deliveryDate: timestamp("delivery_date", { withTimezone: true }),
+  paymentMethod: text("payment_method").notNull().default("cash"),
+  isPaid: boolean("is_paid").notNull().default(false),
+  notes: text("notes"),
+  subtotalAmount: doublePrecision("subtotal_amount").notNull(),
+  discountAmount: doublePrecision("discount_amount").notNull().default(0),
+  totalAmount: doublePrecision("total_amount").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const orderItemsTable = pgTable("order_items", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orderId: uuid("order_id")
+    .notNull()
+    .references(() => ordersTable.id),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => productsTable.id),
+  productNameSnapshot: text("product_name_snapshot").notNull(),
+  quantity: doublePrecision("quantity").notNull(),
+  unitSalePriceSnapshot: doublePrecision("unit_sale_price_snapshot").notNull(),
+  unitCostSnapshot: doublePrecision("unit_cost_snapshot").notNull(),
+  lineSubtotal: doublePrecision("line_subtotal").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const clientsTable = pgTable('clients', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  name:      text('name').notNull(),          // nombre, apellido o apodo
+  phone:     text('phone'),
+  address:   text('address'),
+  notes:     text('notes'),
+  isActive:  boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});

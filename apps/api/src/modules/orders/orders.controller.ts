@@ -1,58 +1,32 @@
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from "fastify";
 
-import { ordersMapper } from './orders.mapper';
+import { NotFoundError } from "../../shared/errors/app-error";
+import { ordersMapper } from "./orders.mapper";
 import {
   createOrderSchema,
   orderIdParamsSchema,
   updateOrderSchema,
   updateOrderStatusSchema,
-} from './orders.schema';
-import { ordersService } from './orders.service';
-
-function formatZodIssues(issues: Array<{ path: PropertyKey[]; message: string }>) {
-  return issues.map((issue) => ({
-    field: issue.path.join('.'),
-    message: issue.message,
-  }));
-}
-
-function isServiceError(
-  error: unknown,
-): error is { statusCode: number; message: string } {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'statusCode' in error &&
-    'message' in error
-  );
-}
+} from "./orders.schema";
+import { ordersService } from "./orders.service";
 
 export const ordersController = {
-  getAllOrders(_request: FastifyRequest, reply: FastifyReply) {
-    const orders = ordersService.getAllOrders();
+  async getAllOrders(_request: FastifyRequest, reply: FastifyReply) {
+    const orders = await ordersService.getAllOrders();
 
     return reply.send(ordersMapper.toOrderListResponse(orders));
   },
 
-  getOrderById(
+  async getOrderById(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = orderIdParamsSchema.safeParse(request.params);
+    const { id } = orderIdParamsSchema.parse(request.params);
 
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid route params',
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
-    }
-
-    const result = ordersService.getOrderById(paramsResult.data.id);
+    const result = await ordersService.getOrderById(id);
 
     if (!result) {
-      return reply.status(404).send({
-        message: 'Order not found',
-      });
+      throw new NotFoundError("Order not found");
     }
 
     return reply.send(
@@ -60,147 +34,103 @@ export const ordersController = {
     );
   },
 
-  createOrder(request: FastifyRequest, reply: FastifyReply) {
-    const bodyResult = createOrderSchema.safeParse(request.body);
+  async createOrder(request: FastifyRequest, reply: FastifyReply) {
+    const body = createOrderSchema.parse(request.body);
 
-    if (!bodyResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid request body',
-        issues: formatZodIssues(bodyResult.error.issues),
-      });
-    }
+    const result = await ordersService.createOrder(body);
 
-    try {
-      const result = ordersService.createOrder(bodyResult.data);
-
-      return reply.status(201).send(
-        ordersMapper.toOrderDetailResponse(result.order, result.items),
-      );
-    } catch (error) {
-      if (isServiceError(error)) {
-        return reply.status(error.statusCode).send({
-          message: error.message,
-        });
-      }
-
-      return reply.status(500).send({
-        message: 'Unexpected error',
-      });
-    }
+    return reply.status(201).send(
+      ordersMapper.toOrderDetailResponse(result.order, result.items),
+    );
   },
 
-  updateOrder(
+  async updateOrder(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = orderIdParamsSchema.safeParse(request.params);
+    const { id } = orderIdParamsSchema.parse(request.params);
+    const body = updateOrderSchema.parse(request.body);
 
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid route params',
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
+    const result = await ordersService.updateOrder(
+      id,
+      body,
+    );
+
+    if (!result) {
+      throw new NotFoundError("Order not found");
     }
 
-    const bodyResult = updateOrderSchema.safeParse(request.body);
-
-    if (!bodyResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid request body',
-        issues: formatZodIssues(bodyResult.error.issues),
-      });
-    }
-
-    try {
-      const result = ordersService.updateOrder(
-        paramsResult.data.id,
-        bodyResult.data,
-      );
-
-      if (!result) {
-        return reply.status(404).send({
-          message: 'Order not found',
-        });
-      }
-
-      return reply.send(
-        ordersMapper.toOrderDetailResponse(result.order, result.items),
-      );
-    } catch (error) {
-      if (isServiceError(error)) {
-        return reply.status(error.statusCode).send({
-          message: error.message,
-        });
-      }
-
-      return reply.status(500).send({
-        message: 'Unexpected error',
-      });
-    }
+    return reply.send(
+      ordersMapper.toOrderDetailResponse(result.order, result.items),
+    );
   },
 
-  updateOrderStatus(
+  async updateOrderStatus(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = orderIdParamsSchema.safeParse(request.params);
+    const { id } = orderIdParamsSchema.parse(request.params);
+    const body = updateOrderStatusSchema.parse(request.body);
 
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid route params',
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
-    }
-
-    const bodyResult = updateOrderStatusSchema.safeParse(request.body);
-
-    if (!bodyResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid request body',
-        issues: formatZodIssues(bodyResult.error.issues),
-      });
-    }
-
-    const order = ordersService.updateOrderStatus(
-      paramsResult.data.id,
-      bodyResult.data,
+    const order = await ordersService.updateOrderStatus(
+      id,
+      body,
     );
 
     if (!order) {
-      return reply.status(404).send({
-        message: 'Order not found',
-      });
+      throw new NotFoundError("Order not found");
     }
 
     return reply.send(ordersMapper.toOrderResponse(order));
   },
 
-  deactivateOrder(
+  async deactivateOrder(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) {
-    const paramsResult = orderIdParamsSchema.safeParse(request.params);
+    const { id } = orderIdParamsSchema.parse(request.params);
 
-    if (!paramsResult.success) {
-      return reply.status(400).send({
-        message: 'Invalid route params',
-        issues: formatZodIssues(paramsResult.error.issues),
-      });
-    }
-
-    const order = ordersService.deactivateOrder(paramsResult.data.id);
+    const order = await ordersService.deactivateOrder(id);
 
     if (!order) {
-      return reply.status(404).send({
-        message: 'Order not found',
-      });
+      throw new NotFoundError("Order not found");
     }
 
     return reply.send(ordersMapper.toOrderResponse(order));
   },
 
-  getSummary(_request: FastifyRequest, reply: FastifyReply) {
-    const summary = ordersService.getSummary();
+  async reactivateOrder(
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply,
+  ) {
+    const { id } = orderIdParamsSchema.parse(request.params);
+
+    const order = await ordersService.reactivateOrder(id);
+
+    if (!order) {
+      throw new NotFoundError("Order not found");
+    }
+
+    return reply.send(ordersMapper.toOrderResponse(order));
+  },
+
+  async hardDeleteOrder(
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply,
+  ) {
+    const { id } = orderIdParamsSchema.parse(request.params);
+
+    const deleted = await ordersService.hardDeleteOrder(id);
+
+    if (!deleted) {
+      throw new NotFoundError("Order not found");
+    }
+
+    return reply.status(204).send();
+  },
+
+  async getSummary(_request: FastifyRequest, reply: FastifyReply) {
+    const summary = await ordersService.getSummary();
 
     return reply.send(summary);
   },

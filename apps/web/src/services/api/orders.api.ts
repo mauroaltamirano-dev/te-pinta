@@ -14,6 +14,8 @@ export type OrderChannel =
   | "phone"
   | "other";
 
+export type PaymentMethod = "cash" | "transfer";
+
 export type OrderItem = {
   id: string;
   orderId: string;
@@ -33,6 +35,9 @@ export type Order = {
   customerNameSnapshot: string | null;
   status: OrderStatus;
   channel: OrderChannel;
+  deliveryDate: string | null;
+  paymentMethod: PaymentMethod;
+  isPaid: boolean;
   notes: string | null;
   subtotalAmount: number;
   discountAmount: number;
@@ -48,7 +53,6 @@ export type OrdersSummary = {
   averageTicket: number;
 };
 
-
 export type OrderDetail = Order & {
   items: OrderItem[];
 };
@@ -63,7 +67,11 @@ export function getOrderById(orderId: string) {
 
 export function createOrder(data: {
   clientId?: string;
+  customerName?: string;
   channel: OrderChannel;
+  deliveryDate?: string;
+  paymentMethod?: PaymentMethod;
+  isPaid?: boolean;
   notes?: string;
   discountAmount?: number;
   items: Array<{
@@ -84,5 +92,37 @@ export function updateOrderStatus(
 }
 
 export function getOrdersSummary() {
-  return apiClient.get<OrdersSummary>('/orders-summary');
+  return apiClient.get<OrdersSummary>("/orders-summary");
+}
+
+export function updateOrder(
+  orderId: string,
+  data: {
+    clientId?: string | null;
+    customerName?: string | null;
+    channel?: OrderChannel;
+    deliveryDate?: string | null;
+    paymentMethod?: PaymentMethod;
+    isPaid?: boolean;
+    notes?: string;
+    discountAmount?: number;
+    items?: Array<{
+      productId: string;
+      quantity: number;
+    }>;
+  },
+) {
+  return apiClient.patch<OrderDetail>(`/orders/${orderId}`, data);
+}
+
+export function deactivateOrder(orderId: string) {
+  return apiClient.delete<Order>(`/orders/${orderId}`);
+}
+
+export function reactivateOrder(orderId: string) {
+  return apiClient.patch<Order>(`/orders/${orderId}/reactivate`, {});
+}
+
+export function hardDeleteOrder(orderId: string) {
+  return apiClient.delete<void>(`/orders/${orderId}/hard-delete`);
 }

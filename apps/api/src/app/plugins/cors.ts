@@ -1,9 +1,13 @@
-import cors from '@fastify/cors';
-import type { FastifyInstance } from 'fastify';
+import cors from "@fastify/cors";
+import type { FastifyPluginAsync } from "fastify";
+import fp from "fastify-plugin";
 
-export async function registerCors(app: FastifyInstance) {
+import { env } from "../../config/env";
+
+export const registerCors: FastifyPluginAsync = fp(async (app) => {
   await app.register(cors, {
-    origin: process.env.WEB_PORT || 'http://localhost:5173',
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    origin: env.webOrigins,
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   });
-}
+});

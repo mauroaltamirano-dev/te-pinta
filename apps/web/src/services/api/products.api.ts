@@ -29,10 +29,13 @@ export type CreateProductPayload = {
 
 export type UpdateProductPayload = Partial<CreateProductPayload>;
 
-export function getProducts() {
-  return apiClient.get<Product[]>("/products");
+export function getProducts(options?: { includeInactive?: boolean }) {
+  return apiClient.get<Product[]>("/products", {
+    params: {
+      includeInactive: options?.includeInactive,
+    },
+  });
 }
-
 export function createProduct(data: CreateProductPayload) {
   return apiClient.post<Product>("/products", data);
 }

@@ -1,12 +1,13 @@
-import { clientsRepository } from '../clients/clients.repository';
-import { productionService } from '../production/production.service';
-import { productsRepository } from '../products/products.repository';
-import { ordersRepository } from './orders.repository';
+import { clientsRepository } from "../clients/clients.repository";
+import { productionService } from "../production/production.service";
+import { productsRepository } from "../products/products.repository";
+import { ordersRepository } from "./orders.repository";
 import type {
   CreateOrderInput,
+  Order,
   UpdateOrderInput,
   UpdateOrderStatusInput,
-} from './orders.types';
+} from "./orders.types";
 
 type ServiceError = {
   statusCode: number;
@@ -26,24 +27,23 @@ type BuiltOrderItem = {
   lineSubtotal: number;
 };
 
-function resolveUnitCostSnapshot(productId: string) {
-  const product = productsRepository.findById(productId);
+async function resolveUnitCostSnapshot(productId: string) {
+  const productResult = await productsRepository.findById(productId);
 
-  if (!product) {
+  if (!productResult) {
     throw createServiceError(400, `Product ${productId} does not exist`);
   }
 
-  if (product.kind === 'prepared') {
-    const costResult = productionService.getProductCost(productId);
+  const product = productResult.product;
+
+  if (product.kind === "prepared") {
+    const costResult = await productionService.getProductCost(productId);
     return costResult.totalUnitCost;
   }
 
-  if (product.kind === 'resale' || product.kind === 'combo') {
+  if (product.kind === "resale" || product.kind === "combo") {
     if (product.directCost === null) {
-      throw createServiceError(
-        400,
-        `Product ${product.name} requires direct cost`,
-      );
+      throw createServiceError(400, `Product ${product.name} requires direct cost`);
     }
 
     return product.directCost;
@@ -79,49 +79,49 @@ function resolveLineSaleAmount(
 
   units = remaining;
 
-  const total =
+  return (
     dozens * (product.dozenPrice ?? 0) +
     halfDozens * (product.halfDozenPrice ?? 0) +
-    units * product.unitPrice;
-
-  return total;
+    units * product.unitPrice
+  );
 }
 
-function buildOrderItems(
+async function buildOrderItems(
   items: Array<{ productId: string; quantity: number }>,
-): {
+): Promise<{
   builtItems: BuiltOrderItem[];
   subtotalAmount: number;
-} {
-  const builtItems = items.map((item) => {
-    const product = productsRepository.findById(item.productId);
+}> {
+  const builtItems: BuiltOrderItem[] = [];
 
-    if (!product) {
+  for (const item of items) {
+    const productResult = await productsRepository.findById(item.productId);
+
+    if (!productResult) {
       throw createServiceError(400, `Product ${item.productId} does not exist`);
     }
+
+    const product = productResult.product;
 
     if (!product.isActive) {
       throw createServiceError(400, `Product ${product.name} is inactive`);
     }
 
-    const unitCostSnapshot = resolveUnitCostSnapshot(item.productId);
+    const unitCostSnapshot = await resolveUnitCostSnapshot(item.productId);
     const lineSubtotal = resolveLineSaleAmount(product, item.quantity);
     const unitSalePriceSnapshot = lineSubtotal / item.quantity;
 
-    return {
+    builtItems.push({
       productId: product.id,
       productNameSnapshot: product.name,
       quantity: item.quantity,
       unitSalePriceSnapshot,
       unitCostSnapshot,
       lineSubtotal,
-    };
-  });
+    });
+  }
 
-  const subtotalAmount = builtItems.reduce(
-    (sum, item) => sum + item.lineSubtotal,
-    0,
-  );
+  const subtotalAmount = builtItems.reduce((sum, item) => sum + item.lineSubtotal, 0);
 
   return {
     builtItems,
@@ -129,67 +129,76 @@ function buildOrderItems(
   };
 }
 
-function validateClient(clientId: string | null | undefined) {
+async function resolveCustomerData(
+  clientId: string | null | undefined,
+  customerName: string | null | undefined,
+) {
+  const trimmedName = customerName?.trim() || null;
+
   if (!clientId) {
-    return null;
+    return {
+      clientId: null,
+      customerNameSnapshot: trimmedName,
+    };
   }
 
-  const client = clientsRepository.findById(clientId);
+  const client = await clientsRepository.findById(clientId);
 
   if (!client) {
-    throw createServiceError(400, 'Client does not exist');
+    throw createServiceError(400, "Client does not exist");
   }
 
   if (!client.isActive) {
-    throw createServiceError(400, 'Client is inactive');
+    throw createServiceError(400, "Client is inactive");
   }
 
-  return client.id;
+  return {
+    clientId: client.id,
+    customerNameSnapshot: trimmedName ?? client.name,
+  };
 }
 
-function ensureOrderEditable(status: string) {
-  if (status === 'delivered' || status === 'cancelled') {
-    throw createServiceError(
-      409,
-      `Order in status "${status}" cannot be edited`,
-    );
+function ensureOrderEditable(status: Order["status"]) {
+  if (status === "delivered" || status === "cancelled") {
+    throw createServiceError(409, `Order in status "${status}" cannot be edited`);
   }
 }
 
 export const ordersService = {
-  getAllOrders() {
-    return ordersRepository.findAllOrders();
+  async getAllOrders() {
+    return await ordersRepository.findAllOrders();
   },
 
-  getOrderById(id: string) {
-    const order = ordersRepository.findOrderById(id);
+  async getOrderById(id: string) {
+    const order = await ordersRepository.findOrderById(id);
 
     if (!order) {
       return null;
     }
 
-    const items = ordersRepository.findItemsByOrderId(id);
+    const items = await ordersRepository.findItemsByOrderId(id);
 
-    return {
-      order,
-      items,
-    };
+    return { order, items };
   },
 
-  createOrder(input: CreateOrderInput) {
-    const clientId = validateClient(input.clientId);
-    const { builtItems, subtotalAmount } = buildOrderItems(input.items);
+  async createOrder(input: CreateOrderInput) {
+    const customerData = await resolveCustomerData(input.clientId, input.customerName);
+    const { builtItems, subtotalAmount } = await buildOrderItems(input.items);
     const discountAmount = input.discountAmount ?? 0;
     const totalAmount = subtotalAmount - discountAmount;
 
     if (totalAmount < 0) {
-      throw createServiceError(400, 'Discount cannot be greater than subtotal');
+      throw createServiceError(400, "Discount cannot be greater than subtotal");
     }
 
-    const order = ordersRepository.createOrder({
-      clientId,
-      status: 'pending',
+    const order = await ordersRepository.createOrder({
+      clientId: customerData.clientId,
+      customerNameSnapshot: customerData.customerNameSnapshot,
+      status: "pending",
       channel: input.channel,
+      deliveryDate: input.deliveryDate ?? null,
+      paymentMethod: input.paymentMethod ?? "cash",
+      isPaid: input.isPaid ?? false,
       notes: input.notes || null,
       subtotalAmount,
       discountAmount,
@@ -197,16 +206,13 @@ export const ordersService = {
       isActive: true,
     });
 
-    const items = ordersRepository.createOrderItems(order.id, builtItems);
+    const items = await ordersRepository.createOrderItems(order.id, builtItems);
 
-    return {
-      order,
-      items,
-    };
+    return { order, items };
   },
 
-  updateOrder(id: string, input: UpdateOrderInput) {
-    const existing = ordersRepository.findOrderById(id);
+  async updateOrder(id: string, input: UpdateOrderInput) {
+    const existing = await ordersRepository.findOrderById(id);
 
     if (!existing) {
       return null;
@@ -214,33 +220,49 @@ export const ordersService = {
 
     ensureOrderEditable(existing.status);
 
-    const nextClientId =
-      input.clientId !== undefined
-        ? validateClient(input.clientId)
-        : existing.clientId;
+    const nextCustomerData =
+      input.clientId !== undefined || input.customerName !== undefined
+        ? await resolveCustomerData(
+            input.clientId ?? existing.clientId,
+            input.customerName !== undefined
+              ? input.customerName
+              : existing.customerNameSnapshot,
+          )
+        : {
+            clientId: existing.clientId,
+            customerNameSnapshot: existing.customerNameSnapshot,
+          };
 
     const nextChannel = input.channel ?? existing.channel;
     const nextNotes = input.notes ?? existing.notes;
     const nextDiscountAmount = input.discountAmount ?? existing.discountAmount;
+    const nextDeliveryDate =
+      input.deliveryDate !== undefined ? input.deliveryDate : existing.deliveryDate;
+    const nextPaymentMethod = input.paymentMethod ?? existing.paymentMethod;
+    const nextIsPaid = input.isPaid ?? existing.isPaid;
 
     let subtotalAmount = existing.subtotalAmount;
-    let items = ordersRepository.findItemsByOrderId(id);
+    let items = await ordersRepository.findItemsByOrderId(id);
 
     if (input.items) {
-      const builtResult = buildOrderItems(input.items);
+      const builtResult = await buildOrderItems(input.items);
       subtotalAmount = builtResult.subtotalAmount;
-      items = ordersRepository.replaceOrderItems(id, builtResult.builtItems);
+      items = await ordersRepository.replaceOrderItems(id, builtResult.builtItems);
     }
 
     const totalAmount = subtotalAmount - nextDiscountAmount;
 
     if (totalAmount < 0) {
-      throw createServiceError(400, 'Discount cannot be greater than subtotal');
+      throw createServiceError(400, "Discount cannot be greater than subtotal");
     }
 
-    const order = ordersRepository.updateOrder(id, {
-      clientId: nextClientId,
+    const order = await ordersRepository.updateOrder(id, {
+      clientId: nextCustomerData.clientId,
+      customerNameSnapshot: nextCustomerData.customerNameSnapshot,
       channel: nextChannel,
+      deliveryDate: nextDeliveryDate ?? null,
+      paymentMethod: nextPaymentMethod,
+      isPaid: nextIsPaid,
       notes: nextNotes,
       subtotalAmount,
       discountAmount: nextDiscountAmount,
@@ -251,40 +273,51 @@ export const ordersService = {
       return null;
     }
 
-    return {
-      order,
-      items,
-    };
+    return { order, items };
   },
 
-  updateOrderStatus(id: string, input: UpdateOrderStatusInput) {
-    const existing = ordersRepository.findOrderById(id);
+  async updateOrderStatus(id: string, input: UpdateOrderStatusInput) {
+    const existing = await ordersRepository.findOrderById(id);
 
     if (!existing) {
       return null;
     }
 
-    return ordersRepository.updateOrder(id, {
+    return await ordersRepository.updateOrder(id, {
       status: input.status,
     });
   },
 
-  deactivateOrder(id: string) {
-    const existing = ordersRepository.findOrderById(id);
+  async deactivateOrder(id: string) {
+    const existing = await ordersRepository.findOrderById(id);
 
     if (!existing) {
       return null;
     }
 
-    return ordersRepository.deactivateOrder(id);
+    return await ordersRepository.deactivateOrder(id);
   },
 
-  getSummary() {
-    const orders = ordersRepository.findAllOrders();
+  async reactivateOrder(id: string) {
+    const existing = await ordersRepository.findOrderById(id);
 
-    const deliveredOrders = orders.filter(
-      (order) => order.status === 'delivered',
-    );
+    if (!existing) {
+      return null;
+    }
+
+    return await ordersRepository.reactivateOrder(id);
+  },
+
+  async hardDeleteOrder(id: string): Promise<boolean> {
+    const existing = await ordersRepository.findOrderById(id);
+    if (!existing) return false;
+    return await ordersRepository.hardDeleteOrder(id);
+  },
+
+  async getSummary() {
+    const orders = await ordersRepository.findAllOrders();
+
+    const deliveredOrders = orders.filter((order) => order.status === "delivered");
 
     const totalRevenue = deliveredOrders.reduce(
       (acc, order) => acc + order.totalAmount,
@@ -293,8 +326,7 @@ export const ordersService = {
 
     const deliveredCount = deliveredOrders.length;
 
-    const averageTicket =
-      deliveredCount > 0 ? totalRevenue / deliveredCount : 0;
+    const averageTicket = deliveredCount > 0 ? totalRevenue / deliveredCount : 0;
 
     return {
       totalRevenue,

@@ -2,31 +2,421 @@
 
 :root {
   font-family: Inter, system-ui, sans-serif;
-  color-scheme: dark;
+
+  /* ─── Tema oscuro (default) ─────────────────────────────── */
+
+  /* Fondos */
+  --background: #0b1020;
+  --background-soft: #10172a;
+  --surface: #141b31;
+  --surface-2: #1a223d;
+  --surface-3: #202a49;
+  --surface-hover: #263252;
+
+  /* Marca */
+  --primary: #c07a52;
+  --primary-hover: #d08a61;
+  --primary-active: #a96845;
+  --primary-foreground: #fffaf6;
+
+  --accent: #e7c9a9;
+  --accent-strong: #d9b38b;
+
+  /* Identidad gastronómica */
+  --crema: #f3e7d7;
+  --arena: #d8c2aa;
+  --arena-strong: #bea286;
+  --cafe: #6b4a3a;
+  --cafe-strong: #4f3428;
+  --bordo: #7c3124;
+  --bordo-strong: #5f241a;
+  --sombra: #2a3553;
+
+  /* Texto */
+  --foreground: #edf2f7;
+  --foreground-soft: #cbd5e1;
+  --foreground-muted: #94a3b8;
+  --foreground-faint: #4f627a;
+
+  /* Bordes */
+  --border: #2a3553;
+  --border-soft: #1e2840;
+  --border-strong: #3a486b;
+
+  /* Estados */
+  --success: #22c55e;
+  --success-soft: #163824;
+  --success-text: #4ade80;
+
+  --warning: #f59e0b;
+  --warning-soft: #3b2a12;
+  --warning-text: #fbbf24;
+
+  --danger: #ef4444;
+  --danger-soft: #3b1618;
+  --danger-text: #f87171;
+
+  --info: #38bdf8;
+  --info-soft: #132c3a;
+  --info-text: #7dd3fc;
+
+  /* Focus */
+  --ring: rgba(192, 122, 82, 0.4);
+
+  /* Sombras */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 20px 45px rgba(0, 0, 0, 0.4);
+
+  /* Radios */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+
+  /* Transiciones */
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-fast: 140ms;
+  --duration-normal: 220ms;
+
+  /* Layout */
+  --container-page: 1280px;
+  --header-height: 64px;
 }
 
+/* ─── Tema claro ──────────────────────────────────────────── */
+[data-theme="light"] {
+  /* Fondos */
+  --background: #f8f5f1;
+  --background-soft: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f3ede6;
+  --surface-3: #ede5db;
+  --surface-hover: #e8ddd2;
+
+  /* Texto */
+  --foreground: #1c1410;
+  --foreground-soft: #3d2e26;
+  --foreground-muted: #7a6055;
+  --foreground-faint: #a8927f;
+
+  /* Bordes */
+  --border: #ddd0c4;
+  --border-soft: #ede5db;
+  --border-strong: #c8b5a4;
+
+  /* Sombra — misma variable, valor más suave */
+  --sombra: #ddd0c4;
+
+  /* Estados — más saturados para contraste sobre fondo claro */
+  --success: #16a34a;
+  --success-soft: #dcfce7;
+  --success-text: #15803d;
+
+  --warning: #d97706;
+  --warning-soft: #fef3c7;
+  --warning-text: #b45309;
+
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  --danger-text: #b91c1c;
+
+  --info: #0284c7;
+  --info-soft: #e0f2fe;
+  --info-text: #0369a1;
+
+  /* Sombras más suaves */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 20px 45px rgba(0, 0, 0, 0.13);
+
+  /* Focus */
+  --ring: rgba(192, 122, 82, 0.3);
+}
+
+/* ─── Reset y base ────────────────────────────────────────── */
 html,
 body,
 #root {
   min-height: 100%;
 }
 
+html {
+  scroll-behavior: smooth;
+  /* Evitar flash de tema incorrecto: el JS en main.tsx aplica data-theme
+     antes de que React monte, pero color-scheme en HTML ayuda al browser */
+  color-scheme: dark;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #020617;
-  color: #e2e8f0;
+  background: var(--background);
+  color: var(--foreground);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Transición suave al cambiar de tema */
+  transition:
+    background-color 200ms var(--ease-standard),
+    color 200ms var(--ease-standard);
 }
 
 * {
   box-sizing: border-box;
 }
 
+*::selection {
+  background: rgba(192, 122, 82, 0.2);
+  color: var(--foreground);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button,
+input,
+select,
+textarea,
+a {
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard),
+    opacity var(--duration-fast) var(--ease-standard);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+img,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* ─── Layer base ──────────────────────────────────────────── */
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin: 0;
+    color: var(--foreground);
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    margin: 0;
+    color: var(--foreground-soft);
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border-soft);
+  }
+}
+
+/* ─── Utilidades ──────────────────────────────────────────── */
+@layer utilities {
+  .bg-app {
+    background: var(--background);
+  }
+  .bg-app-soft {
+    background: var(--background-soft);
+  }
+  .bg-surface {
+    background: var(--surface);
+  }
+  .bg-surface-2 {
+    background: var(--surface-2);
+  }
+  .bg-surface-3 {
+    background: var(--surface-3);
+  }
+  .bg-surface-hover {
+    background: var(--surface-hover);
+  }
+
+  .border-app {
+    border-color: var(--border);
+  }
+  .border-app-soft {
+    border-color: var(--border-soft);
+  }
+
+  .text-strong {
+    color: var(--foreground);
+  }
+  .text-soft {
+    color: var(--foreground-soft);
+  }
+  .text-muted {
+    color: var(--foreground-muted);
+  }
+  .text-faint {
+    color: var(--foreground-faint);
+  }
+  .text-brand {
+    color: var(--accent);
+  }
+
+  .shadow-app-sm {
+    box-shadow: var(--shadow-sm);
+  }
+  .shadow-app-md {
+    box-shadow: var(--shadow-md);
+  }
+  .shadow-app-lg {
+    box-shadow: var(--shadow-lg);
+  }
+
+  .card-hover {
+    transition:
+      background-color var(--duration-normal) var(--ease-standard),
+      border-color var(--duration-normal) var(--ease-standard),
+      transform var(--duration-normal) var(--ease-standard),
+      box-shadow var(--duration-normal) var(--ease-standard);
+  }
+
+  .card-hover:hover {
+    background: var(--surface-2);
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+  }
+
+  .ring-brand {
+    box-shadow: 0 0 0 3px var(--ring);
+  }
+
+  .animate-fade-in {
+    animation: fade-in var(--duration-normal) var(--ease-standard) both;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 280ms var(--ease-standard) both;
+  }
+}
+
+/* ─── @theme (tokens Tailwind) ───────────────────────────── */
 @theme {
-  --color-crema: #e9dcc9;
-  --color-bordo: #702a1d;
-  --color-cafe: #4d3227;
-  --color-arena: #d9c5b2;
-  --color-sombra: #cdbba7;
+  /* Paleta gastronómica fija */
+  --color-crema: var(--crema);
+  --color-arena: var(--arena);
+  --color-arena-strong: var(--arena-strong);
+  --color-cafe: var(--cafe);
+  --color-cafe-strong: var(--cafe-strong);
+  --color-bordo: var(--bordo);
+  --color-bordo-strong: var(--bordo-strong);
+  --color-sombra: var(--sombra);
+
+  /* Superficies */
+  --color-background: var(--background);
+  --color-background-soft: var(--background-soft);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-hover: var(--surface-hover);
+
+  /* Texto */
+  --color-foreground: var(--foreground);
+  --color-foreground-soft: var(--foreground-soft);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-foreground-faint: var(--foreground-faint);
+
+  /* Bordes */
+  --color-border: var(--border);
+  --color-border-soft: var(--border-soft);
+  --color-border-strong: var(--border-strong);
+
+  /* Marca */
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+
+  /* Estados */
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-text: var(--success-text);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-text: var(--warning-text);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-text: var(--danger-text);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-text: var(--info-text);
+}
+
+/* ─── Keyframes ───────────────────────────────────────────── */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

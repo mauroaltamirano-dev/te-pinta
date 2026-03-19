@@ -1,4 +1,4 @@
-import { eq, ilike } from "drizzle-orm";
+import { eq, ilike, and } from "drizzle-orm";
 
 import { db } from "../../db/client";
 import { categoriesTable } from "../../db/schema";
@@ -20,11 +20,20 @@ function mapRowToCategory(row: typeof categoriesTable.$inferSelect): Category {
 }
 
 export const categoriesRepository = {
-  async findAll(): Promise<Category[]> {
-    const rows = await db.select().from(categoriesTable);
+async findAll(options?: { includeInactive?: boolean }): Promise<Category[]> {
+  const includeInactive = options?.includeInactive ?? false;
 
-    return rows.map(mapRowToCategory);
-  },
+  const rows = await db
+    .select()
+    .from(categoriesTable)
+    .where(
+      includeInactive
+        ? undefined
+        : and(eq(categoriesTable.isActive, true)),
+    );
+
+  return rows.map(mapRowToCategory);
+},
 
   async findById(id: string): Promise<Category | null> {
     const [row] = await db
@@ -89,6 +98,19 @@ export const categoriesRepository = {
       .update(categoriesTable)
       .set({
         isActive: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(categoriesTable.id, id))
+      .returning();
+
+    return row ? mapRowToCategory(row) : null;
+  },
+
+  async reactivate(id: string): Promise<Category | null> {
+    const [row] = await db
+      .update(categoriesTable)
+      .set({
+        isActive: true,
         updatedAt: new Date(),
       })
       .where(eq(categoriesTable.id, id))

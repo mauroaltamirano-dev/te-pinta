@@ -23,7 +23,6 @@ function getUnitGroup(unit: string) {
   if (unit === 'kg' || unit === 'g') return 'weight';
   if (unit === 'l' || unit === 'ml') return 'volume';
   if (unit === 'unit') return 'unit';
-
   return 'unknown';
 }
 
@@ -36,12 +35,20 @@ export const recipesService = {
     return await recipesRepository.findAllRecipes();
   },
 
+  // ── nuevo ────────────────────────────────────────────────────
+  async getAllRecipeItems(): Promise<RecipeItem[]> {
+    return await recipesRepository.findAllRecipeItems();
+  },
+
   async getRecipeById(id: string): Promise<Recipe | null> {
     return await recipesRepository.findRecipeById(id);
   },
 
-  async getRecipeByProductId(productId: string): Promise<Recipe | null> {
-    return await recipesRepository.findRecipeByProductId(productId);
+  async getRecipeByProductId(
+    productId: string,
+    options?: { includeInactive?: boolean },
+  ): Promise<Recipe | null> {
+    return await recipesRepository.findRecipeByProductId(productId, options);
   },
 
   async createRecipe(input: CreateRecipeInput): Promise<Recipe> {
@@ -72,6 +79,10 @@ export const recipesService = {
 
   async deactivateRecipe(id: string): Promise<Recipe | null> {
     return await recipesRepository.deactivateRecipe(id);
+  },
+
+  async reactivateRecipe(id: string): Promise<Recipe | null> {
+    return await recipesRepository.reactivateRecipe(id);
   },
 
   async getRecipeItems(recipeId: string): Promise<RecipeItem[]> {
