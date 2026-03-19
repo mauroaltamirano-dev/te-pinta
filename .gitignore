@@ -5,7 +5,6 @@ coverage
 .env
 .env.local
 .env.*.local
-pnpm-lock.yaml
 *.log
 .DS_Store
 .vscode
