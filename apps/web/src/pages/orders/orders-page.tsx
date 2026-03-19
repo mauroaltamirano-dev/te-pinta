@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { MdAdd } from "react-icons/md";
 
 import type { Order } from "../../services/api/orders.api";
@@ -61,11 +61,11 @@ export function OrdersPage() {
       </div>
 
       {/* ── Tabla full-width ────────────────────────────────── */}
-      <OrdersTable selectedOrderId={selectedOrderId} onEditOrder={openEdit} />
+      <OrdersTable selectedOrderId={selectedOrderId} onEditOrder={openEdit} onCreateOrder={openNew} />
 
       {/* ── Drawer ──────────────────────────────────────────── */}
       <Drawer open={drawerOpen} onClose={closeDrawer}>
-        <OrderForm order={selectedOrder} onClose={closeDrawer} />
+        <OrderForm order={selectedOrder} onCancelEdit={closeDrawer} />
       </Drawer>
     </div>
   );

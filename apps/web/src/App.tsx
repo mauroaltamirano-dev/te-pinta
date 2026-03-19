@@ -12,13 +12,13 @@ import { ProductsPage } from "./pages/products/products-page";
 import { PurchasesPage } from "./pages/purchases/purchases-page";
 import { RecipesPage } from "./pages/recipes/recipes-page";
 import { RevenuePage } from "./pages/renueve/revenue-page";
-import { SalesDashboardPage } from "./pages/dashboard/dashboard-page";
+import { DashboardPage } from "./pages/dashboard/dashboard-page";
 
 function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        <Route path={APP_ROUTES.dashboard} element={<SalesDashboardPage />} />
+        <Route path={APP_ROUTES.dashboard} element={<DashboardPage />} />
         <Route path={APP_ROUTES.categories} element={<CategoriesPage />} />
         <Route path={APP_ROUTES.ingredients} element={<IngredientsPage />} />
         <Route path={APP_ROUTES.products} element={<ProductsPage />} />

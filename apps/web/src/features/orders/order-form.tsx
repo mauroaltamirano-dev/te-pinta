@@ -36,7 +36,11 @@ const smallFieldBase =
 
 const fieldStyle = (isEditing: boolean, hasError = false) => ({
   background: "var(--background)",
-  borderColor: hasError ? "var(--danger)" : "var(--border)",
+  borderColor: hasError
+    ? "var(--danger)"
+    : isEditing
+      ? "var(--warning)"
+      : "var(--border)",
   color: "var(--foreground)",
 });
 

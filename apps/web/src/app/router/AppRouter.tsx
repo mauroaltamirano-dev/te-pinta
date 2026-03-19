@@ -5,7 +5,7 @@ import { APP_ROUTES } from "../../constants/routes";
 import { LoginPage } from "../../pages/auth/LoginPage";
 import { ClientsPage } from "../../pages/clients/clients-page";
 import { DashboardPage } from "../../pages/dashboard/dashboard-page";
-import { FinancePage } from "../../pages/finance/FinancePage";
+import { FinancePage } from "../../pages/finance/finance-page";
 import { LedgerPage } from "../../pages/ledger/LedgerPage";
 import { OrdersPage } from "../../pages/orders/orders-page";
 import { ProductsPage } from "../../pages/products/products-page";

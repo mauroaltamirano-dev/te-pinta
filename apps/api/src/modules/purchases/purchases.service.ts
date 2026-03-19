@@ -23,10 +23,10 @@ export const purchasesService = {
     return purchasesRepository.findById(id);
   },
 
-  create(input: CreatePurchaseInput) {
+  async create(input: CreatePurchaseInput) {
     if (input.type === 'ingredient') {
       const ingredient = input.ingredientId
-        ? ingredientsRepository.findById(input.ingredientId)
+        ? await ingredientsRepository.findById(input.ingredientId)
         : null;
 
       if (!ingredient) {
@@ -41,7 +41,7 @@ export const purchasesService = {
       }
 
       if (input.unitPrice !== undefined) {
-        ingredientsRepository.update(ingredient.id, {
+        await ingredientsRepository.update(ingredient.id, {
           currentCost: input.unitPrice,
         });
       }

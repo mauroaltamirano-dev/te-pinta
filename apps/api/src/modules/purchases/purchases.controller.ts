@@ -31,10 +31,10 @@ export const purchasesController = {
     return reply.send(purchasesMapper.toResponse(purchase));
   },
 
-  create(request: FastifyRequest, reply: FastifyReply) {
+  async create(request: FastifyRequest, reply: FastifyReply) {
     const body = createPurchaseSchema.parse(request.body);
 
-    const purchase = purchasesService.create(body);
+    const purchase = await purchasesService.create(body);
 
     return reply.status(201).send(purchasesMapper.toResponse(purchase));
   },

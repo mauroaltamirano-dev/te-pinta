@@ -383,7 +383,7 @@ export function OrdersTable({
   onCreateOrder,
 }: {
   selectedOrderId: string | null;
-  onEditOrder: (orderId: string | null) => void;
+  onEditOrder: (orderId: string) => void;
   onCreateOrder: () => void;
 }) {
   const { data: orders, isLoading } = useOrders();
@@ -871,11 +871,7 @@ export function OrdersTable({
 
                           <button
                             type="button"
-                            onClick={() =>
-                              onEditOrder(
-                                selectedOrderId === order.id ? null : order.id,
-                              )
-                            }
+                            onClick={() => onEditOrder(order.id)}
                             disabled={!order.isActive}
                             className="flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40"
                             style={

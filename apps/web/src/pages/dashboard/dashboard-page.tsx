@@ -44,7 +44,7 @@ function DashboardSkeleton() {
 }
 
 /* ── Página principal ───────────────────────────────────────── */
-export function SalesDashboardPage() {
+export function DashboardPage() {
   const [range, setRange] = useState<DashboardRange>("7d");
   const { data, isLoading, isError } = useSalesDashboard(range);
 

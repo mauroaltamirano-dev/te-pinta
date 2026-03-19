@@ -32,8 +32,8 @@ function getRangeStart(range: DashboardRange): Date {
   return start;
 }
 
-function normalizeDate(dateIso: string): string {
-  return new Date(dateIso).toISOString().slice(0, 10);
+function normalizeDate(date: Date | string): string {
+  return new Date(date).toISOString().slice(0, 10);
 }
 
 export const dashboardService = {
@@ -138,7 +138,9 @@ export const dashboardService = {
         customerName:  await dashboardRepository.findClientNameById(order.clientId),
         total:         order.totalAmount,
         paymentMethod: order.channel,
-        createdAt:     order.createdAt,
+        createdAt:     order.createdAt instanceof Date
+                         ? order.createdAt.toISOString()
+                         : String(order.createdAt),
         status:        order.status,
       })),
     );
