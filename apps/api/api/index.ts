@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { buildServer } from "../src/app/server/build-server.js";
+import { buildServer } from "../src/app/server/build-server";
 
 // Reuse the app across warm invocations (singleton pattern for serverless)
 let app: ReturnType<typeof buildServer> | null = null;
