@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "buildCommand": "pnpm --filter api build",
+  "outputDirectory": "apps/api/dist",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/apps/api/api/index.ts" }
+  ]
+}
