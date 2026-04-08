@@ -37,7 +37,7 @@ export const env = {
   databaseUrl: data.DATABASE_URL,
 
   webOrigins: data.WEB_ORIGINS.split(",")
-    .map((origin) => origin.trim())
+    .map((origin) => origin.trim().replace(/\/$/, ""))
     .filter(Boolean),
 
   logLevel: data.LOG_LEVEL ?? (data.NODE_ENV === "development" ? "debug" : "info"),
