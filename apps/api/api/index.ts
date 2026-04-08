@@ -1,3 +1,4 @@
+import "dotenv/config";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { buildServer } from "../src/app/server/build-server";
 
@@ -31,8 +32,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.status(response.statusCode);
 
   for (const [key, value] of Object.entries(response.headers)) {
-    res.setHeader(key, value as string | string[]);
+    if (value !== undefined) {
+      res.setHeader(key, value as string | string[]);
+    }
   }
 
-  res.send(response.rawPayload);
+  res.end(response.rawPayload);
 }

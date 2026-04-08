@@ -121,6 +121,8 @@ export const ordersTable = pgTable("orders", {
   id: uuid("id").defaultRandom().primaryKey(),
   clientId: uuid("client_id"),
   customerNameSnapshot: text("customer_name_snapshot"),
+  customerPhoneSnapshot: text("customer_phone_snapshot"),
+  customerAddressSnapshot: text("customer_address_snapshot"),
   status: text("status").notNull(),
   channel: text("channel").notNull(),
   deliveryDate: timestamp("delivery_date", { withTimezone: true }),
@@ -169,4 +171,37 @@ export const clientsTable = pgTable('clients', {
   isActive:  boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const purchasesTable = pgTable("purchases", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  date: text("date").notNull(),
+  type: text("type").notNull(), // 'ingredient' | 'other'
+  ingredientId: uuid("ingredient_id").references(() => ingredientsTable.id),
+  nameSnapshot: text("name_snapshot").notNull(),
+  quantity: doublePrecision("quantity"),
+  unit: text("unit"),
+  unitPrice: doublePrecision("unit_price"),
+  totalAmount: doublePrecision("total_amount").notNull(),
+  supplier: text("supplier"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const weeklyClosuresTable = pgTable("weekly_closures", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name"),
+  startDate: timestamp("start_date", { withTimezone: true }).notNull(),
+  endDate: timestamp("end_date", { withTimezone: true }).notNull(),
+  status: text("status").notNull().default("open"),
+  notes: text("notes"),
+  snapshot: text("snapshot"), // JSON snapshot for historical data
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  closedAt: timestamp("closed_at", { withTimezone: true })
 });

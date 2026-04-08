@@ -20,7 +20,7 @@ export function buildLoggerOptions(): FastifyServerOptions["logger"] {
             colorize: true,
             translateTime: "HH:MM:ss",
             ignore: "pid,hostname",
-            singleLine: false,
+            singleLine: true,
           },
         }
       : undefined,

@@ -11,14 +11,13 @@ type DrawerProps = {
 
 /**
  * Drawer lateral derecho montado via React Portal directamente en document.body.
- * Esto evita que el stacking context del layout (topbar sticky z-10, etc.)
- * se superponga sobre el overlay y el panel.
+ * Soporta altura 100vh con flex-col layout.
  */
 export function Drawer({
   open,
   onClose,
   children,
-  width = "min(480px, 100vw)",
+  width = "min(500px, 100vw)",
 }: DrawerProps) {
   /* Cerrar con Escape */
   useEffect(() => {
@@ -59,6 +58,7 @@ export function Drawer({
       <div
         role="dialog"
         aria-modal="true"
+        className="overflow-hidden sm:rounded-l-2xl"
         style={{
           position: "fixed",
           top: 0,
@@ -74,7 +74,7 @@ export function Drawer({
           transition: "transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1)",
         }}
       >
-        {/* Solo renderizar hijos cuando está abierto para no montar queries innecesarios */}
+        {/* Renderizar solo cuando abierto */}
         {open && children}
       </div>
     </>

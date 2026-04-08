@@ -17,6 +17,8 @@ export type Order = {
   id: string;
   clientId: string | null;
   customerNameSnapshot: string | null;
+  customerPhoneSnapshot: string | null;
+  customerAddressSnapshot: string | null;
   status: OrderStatus;
   channel: OrderChannel;
   deliveryDate: Date | null;
@@ -48,6 +50,21 @@ export type OrdersSummary = {
   totalRevenue: number;
   deliveredCount: number;
   averageTicket: number;
+};
+
+export type OperationalOrderVariety = {
+  productId: string;
+  productName: string;
+  units: number;
+  dozens: number;
+};
+
+export type OperationalOrdersSummary = {
+  date: string | null;
+  ordersCount: number;
+  totalUnits: number;
+  totalDozens: number;
+  varieties: OperationalOrderVariety[];
 };
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;

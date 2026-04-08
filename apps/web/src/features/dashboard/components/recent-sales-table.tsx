@@ -3,14 +3,14 @@ import type { RecentSaleItem } from "../../../services/api/dashboard.api";
 type OrderStatus =
   | "pending"
   | "confirmed"
-  | "preparing"
+  | "prepared"
   | "delivered"
   | "cancelled";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: "Pendiente",
   confirmed: "Confirmado",
-  preparing: "En preparación",
+  prepared: "Preparado",
   delivered: "Entregado",
   cancelled: "Cancelado",
 };
@@ -18,9 +18,9 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
 const STATUS_STYLE: Record<OrderStatus, React.CSSProperties> = {
   pending: { background: "var(--warning-soft)", color: "var(--warning-text)" },
   confirmed: { background: "var(--info-soft)", color: "var(--info-text)" },
-  preparing: {
-    background: "var(--warning-soft)",
-    color: "var(--warning-text)",
+  prepared: {
+    background: "rgba(192, 122, 82, 0.12)",
+    color: "var(--primary)",
   },
   delivered: {
     background: "var(--success-soft)",

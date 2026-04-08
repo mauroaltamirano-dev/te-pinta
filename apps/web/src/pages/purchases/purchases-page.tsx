@@ -1,32 +1,68 @@
+import { useCallback, useState } from "react";
+import { MdAdd } from "react-icons/md";
+
+import { Drawer } from "../../components/ui/Drawer";
 import { PurchaseForm } from "../../features/purchases/purchase-form";
+import { PurchasesSummaryCards } from "../../features/purchases/purchases-summary-cards";
 import { PurchasesTable } from "../../features/purchases/purchases-table";
 
 export function PurchasesPage() {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedPurchaseId, setSelectedPurchaseId] = useState<string | null>(null);
+
+  const openNew = useCallback(() => {
+    setSelectedPurchaseId(null);
+    setDrawerOpen(true);
+  }, []);
+
+  const openEdit = useCallback((id: string) => {
+    setSelectedPurchaseId(id);
+    setDrawerOpen(true);
+  }, []);
+
+  const closeDrawer = useCallback(() => {
+    setDrawerOpen(false);
+    setSelectedPurchaseId(null);
+  }, []);
+
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <section className="rounded-3xl border border-sombra bg-arena px-6 py-6 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-cafe/70">
-          Egresos
-        </p>
-
-        <h1 className="mt-2 text-3xl font-bold text-bordo">Compras y gastos</h1>
-
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-cafe/85">
-          Registrá las compras de ingredientes, gastos operativos e inversiones
-          del negocio. Todos los movimientos quedan asentados en el libro de
-          cuentas para el análisis de resultados.
-        </p>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+    <div className="mx-auto max-w-7xl space-y-5 px-4 py-6 md:px-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <PurchaseForm />
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted">
+            Egresos
+          </p>
+          <h1 className="mt-1 text-2xl font-bold text-strong">
+            Compras y gastos
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm text-soft">
+            Registrá compras de ingredientes, gastos operativos e inversiones.
+            Todos los movimientos impactan en el análisis del negocio y en el
+            libro contable.
+          </p>
         </div>
 
-        <div>
-          <PurchasesTable />
-        </div>
-      </section>
+        <button
+          type="button"
+          onClick={openNew}
+          className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition"
+          style={{
+            background: "var(--primary)",
+            color: "var(--primary-foreground)",
+          }}
+        >
+          <MdAdd size={18} />
+          Nueva compra
+        </button>
+      </div>
+
+      <PurchasesSummaryCards />
+
+      <PurchasesTable onEdit={openEdit} />
+
+      <Drawer open={drawerOpen} onClose={closeDrawer}>
+        <PurchaseForm purchaseId={selectedPurchaseId} onCancel={closeDrawer} />
+      </Drawer>
     </div>
   );
 }

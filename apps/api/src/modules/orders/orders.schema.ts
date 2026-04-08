@@ -7,7 +7,7 @@ export const orderIdParamsSchema = z.object({
 export const orderStatusSchema = z.enum([
   "pending",
   "confirmed",
-  "preparing",
+  "prepared",
   "delivered",
   "cancelled",
 ]);
@@ -30,6 +30,8 @@ export const orderItemInputSchema = z.object({
 export const createOrderSchema = z.object({
   clientId: z.uuid("Client id must be a valid UUID").optional(),
   customerName: z.string().trim().min(1).max(120).optional(),
+  customerPhone: z.string().trim().max(50).optional(),
+  customerAddress: z.string().trim().max(255).optional(),
   channel: orderChannelSchema,
   deliveryDate: z.coerce.date().optional(),
   paymentMethod: paymentMethodSchema.optional(),
@@ -46,6 +48,8 @@ export const updateOrderSchema = z
   .object({
     clientId: z.uuid("Client id must be a valid UUID").nullable().optional(),
     customerName: z.string().trim().min(1).max(120).nullable().optional(),
+    customerPhone: z.string().trim().max(50).nullable().optional(),
+    customerAddress: z.string().trim().max(255).nullable().optional(),
     channel: orderChannelSchema.optional(),
     deliveryDate: z.coerce.date().nullable().optional(),
     paymentMethod: paymentMethodSchema.optional(),
@@ -63,4 +67,11 @@ export const updateOrderSchema = z
 
 export const updateOrderStatusSchema = z.object({
   status: orderStatusSchema,
+});
+
+export const operationalSummaryQuerySchema = z.object({
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD")
+    .optional(),
 });

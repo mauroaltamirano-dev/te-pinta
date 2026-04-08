@@ -179,32 +179,34 @@ export const productionService = {
 
   async getIngredientsNeededFromOrders() {
     const consolidated = new Map<string, RequirementItem>();
-    const allOrders = await ordersRepository.findAllOrders();
+    
+    const activeOrders = await ordersRepository.findOrdersByStatuses(['pending', 'confirmed']);
 
-    const activeOrders = allOrders.filter(
-      (order) =>
-        order.isActive &&
-        (order.status === 'pending' || order.status === 'confirmed'),
-    );
+    if (activeOrders.length === 0) {
+      return {
+        ordersConsidered: 0,
+        productsCalculated: 0,
+        items: [],
+      };
+    }
+
+    const orderIds = activeOrders.map((o) => o.id);
+    const allOrderItems = await ordersRepository.findItemsByOrderIds(orderIds);
+
+    const productQuantities = new Map<string, number>();
+    for (const item of allOrderItems) {
+      productQuantities.set(
+        item.productId,
+        (productQuantities.get(item.productId) || 0) + item.quantity,
+      );
+    }
 
     let productsCalculated = 0;
 
-    for (const order of activeOrders) {
-      const orderItems = await ordersRepository.findItemsByOrderId(order.id);
-
-      for (const orderItem of orderItems) {
-        let result: Awaited<ReturnType<typeof buildRequirementsForProduct>>;
-
-        try {
-          result = await buildRequirementsForProduct(
-            orderItem.productId,
-            orderItem.quantity,
-          );
-        } catch {
-          continue;
-        }
-
-        productsCalculated += orderItem.quantity;
+    for (const [productId, quantity] of productQuantities.entries()) {
+      try {
+        const result = await buildRequirementsForProduct(productId, quantity);
+        productsCalculated += quantity;
 
         for (const requirement of result.items) {
           const existing = consolidated.get(requirement.ingredientId);
@@ -217,10 +219,11 @@ export const productionService = {
           consolidated.set(requirement.ingredientId, {
             ...existing,
             requiredQuantityInBaseUnit:
-              existing.requiredQuantityInBaseUnit +
-              requirement.requiredQuantityInBaseUnit,
+              existing.requiredQuantityInBaseUnit + requirement.requiredQuantityInBaseUnit,
           });
         }
+      } catch (e) {
+        continue;
       }
     }
 
@@ -234,8 +237,16 @@ export const productionService = {
   async getBatchRequirements(input: ProductionRequirementsBatchInput) {
     const consolidated = new Map<string, RequirementItem>();
 
+    const productQuantities = new Map<string, number>();
     for (const item of input.items) {
-      const result = await buildRequirementsForProduct(item.productId, item.quantity);
+      productQuantities.set(
+        item.productId,
+        (productQuantities.get(item.productId) || 0) + item.quantity,
+      );
+    }
+
+    for (const [productId, quantity] of productQuantities.entries()) {
+      const result = await buildRequirementsForProduct(productId, quantity);
 
       for (const requirement of result.items) {
         const existing = consolidated.get(requirement.ingredientId);

@@ -132,13 +132,40 @@ async function buildOrderItems(
 async function resolveCustomerData(
   clientId: string | null | undefined,
   customerName: string | null | undefined,
+  customerPhone: string | null | undefined,
+  customerAddress: string | null | undefined,
 ) {
   const trimmedName = customerName?.trim() || null;
+  const trimmedPhone = customerPhone?.trim() || null;
+  const trimmedAddress = customerAddress?.trim() || null;
 
   if (!clientId) {
+    if (trimmedName) {
+      // Find exactly by name or create a new client
+      const existingClient = await clientsRepository.findByName(trimmedName);
+      let targetClient = existingClient;
+
+      if (!targetClient) {
+        targetClient = await clientsRepository.create({
+          name: trimmedName,
+          phone: trimmedPhone || undefined,
+          address: trimmedAddress || undefined,
+        });
+      }
+
+      return {
+        clientId: targetClient.id,
+        customerNameSnapshot: targetClient.name,
+        customerPhoneSnapshot: targetClient.phone || trimmedPhone,
+        customerAddressSnapshot: targetClient.address || trimmedAddress,
+      };
+    }
+
     return {
       clientId: null,
-      customerNameSnapshot: trimmedName,
+      customerNameSnapshot: null,
+      customerPhoneSnapshot: null,
+      customerAddressSnapshot: null,
     };
   }
 
@@ -155,19 +182,84 @@ async function resolveCustomerData(
   return {
     clientId: client.id,
     customerNameSnapshot: trimmedName ?? client.name,
+    customerPhoneSnapshot: trimmedPhone !== undefined ? trimmedPhone : client.phone,
+    customerAddressSnapshot: trimmedAddress !== undefined ? trimmedAddress : client.address,
   };
 }
 
 function ensureOrderEditable(status: Order["status"]) {
-  if (status === "delivered" || status === "cancelled") {
+  if (status === "cancelled") {
     throw createServiceError(409, `Order in status "${status}" cannot be edited`);
   }
+}
+
+function getDayRange(dateString: string) {
+  const start = new Date(`${dateString}T00:00:00.000Z`);
+  const end = new Date(`${dateString}T00:00:00.000Z`);
+  end.setUTCDate(end.getUTCDate() + 1);
+
+  return { start, end };
 }
 
 export const ordersService = {
   async getAllOrders() {
     return await ordersRepository.findAllOrders();
   },
+
+async getOperationalSummary(date?: string) {
+  const statuses: Array<Order["status"]> = ["confirmed"];
+
+  const orders = date
+    ? await (async () => {
+        const { start, end } = getDayRange(date);
+        return ordersRepository.findOrdersByDeliveryDateAndStatuses(
+          start,
+          end,
+          statuses,
+        );
+      })()
+    : await ordersRepository.findOrdersByStatuses(statuses);
+
+  const orderIds = orders.map((order) => order.id);
+  const items = await ordersRepository.findItemsByOrderIds(orderIds);
+
+  const varietiesMap = new Map<
+    string,
+    { productId: string; productName: string; units: number; dozens: number }
+  >();
+
+  for (const item of items) {
+    const current = varietiesMap.get(item.productId);
+
+    if (current) {
+      current.units += item.quantity;
+      current.dozens = current.units / 12;
+    } else {
+      varietiesMap.set(item.productId, {
+        productId: item.productId,
+        productName: item.productNameSnapshot,
+        units: item.quantity,
+        dozens: item.quantity / 12,
+      });
+    }
+  }
+
+  const varieties = Array.from(varietiesMap.values()).sort(
+    (a, b) => b.units - a.units,
+  );
+
+  const totalUnits = varieties.reduce((sum, item) => sum + item.units, 0);
+  const totalDozens = totalUnits / 12;
+
+  return {
+    date: date ?? null,
+    ordersCount: orders.length,
+    totalUnits,
+    totalDozens,
+    varieties,
+  };
+},
+  
 
   async getOrderById(id: string) {
     const order = await ordersRepository.findOrderById(id);
@@ -182,7 +274,12 @@ export const ordersService = {
   },
 
   async createOrder(input: CreateOrderInput) {
-    const customerData = await resolveCustomerData(input.clientId, input.customerName);
+    const customerData = await resolveCustomerData(
+      input.clientId,
+      input.customerName,
+      input.customerPhone,
+      input.customerAddress,
+    );
     const { builtItems, subtotalAmount } = await buildOrderItems(input.items);
     const discountAmount = input.discountAmount ?? 0;
     const totalAmount = subtotalAmount - discountAmount;
@@ -194,6 +291,8 @@ export const ordersService = {
     const order = await ordersRepository.createOrder({
       clientId: customerData.clientId,
       customerNameSnapshot: customerData.customerNameSnapshot,
+      customerPhoneSnapshot: customerData.customerPhoneSnapshot,
+      customerAddressSnapshot: customerData.customerAddressSnapshot,
       status: "pending",
       channel: input.channel,
       deliveryDate: input.deliveryDate ?? null,
@@ -211,6 +310,8 @@ export const ordersService = {
     return { order, items };
   },
 
+  
+
   async updateOrder(id: string, input: UpdateOrderInput) {
     const existing = await ordersRepository.findOrderById(id);
 
@@ -218,19 +319,36 @@ export const ordersService = {
       return null;
     }
 
-    ensureOrderEditable(existing.status);
+    const isOnlyPaymentUpdate = Object.keys(input).every((key) =>
+      ["isPaid", "paymentMethod"].includes(key)
+    );
+
+    if (!isOnlyPaymentUpdate) {
+      ensureOrderEditable(existing.status);
+    }
 
     const nextCustomerData =
-      input.clientId !== undefined || input.customerName !== undefined
+      input.clientId !== undefined || 
+      input.customerName !== undefined ||
+      input.customerPhone !== undefined ||
+      input.customerAddress !== undefined
         ? await resolveCustomerData(
             input.clientId ?? existing.clientId,
             input.customerName !== undefined
               ? input.customerName
               : existing.customerNameSnapshot,
+            input.customerPhone !== undefined
+              ? input.customerPhone
+              : existing.customerPhoneSnapshot,
+            input.customerAddress !== undefined
+              ? input.customerAddress
+              : existing.customerAddressSnapshot,
           )
         : {
             clientId: existing.clientId,
             customerNameSnapshot: existing.customerNameSnapshot,
+            customerPhoneSnapshot: existing.customerPhoneSnapshot,
+            customerAddressSnapshot: existing.customerAddressSnapshot,
           };
 
     const nextChannel = input.channel ?? existing.channel;
@@ -259,6 +377,8 @@ export const ordersService = {
     const order = await ordersRepository.updateOrder(id, {
       clientId: nextCustomerData.clientId,
       customerNameSnapshot: nextCustomerData.customerNameSnapshot,
+      customerPhoneSnapshot: nextCustomerData.customerPhoneSnapshot,
+      customerAddressSnapshot: nextCustomerData.customerAddressSnapshot,
       channel: nextChannel,
       deliveryDate: nextDeliveryDate ?? null,
       paymentMethod: nextPaymentMethod,
@@ -307,6 +427,8 @@ export const ordersService = {
 
     return await ordersRepository.reactivateOrder(id);
   },
+
+  
 
   async hardDeleteOrder(id: string): Promise<boolean> {
     const existing = await ordersRepository.findOrderById(id);

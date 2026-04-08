@@ -12,8 +12,6 @@ export function buildServer() {
     disableRequestLogging: true,
   });
 
-  console.log(app)
-
   app.register(requestLoggingPlugin);
   app.register(errorHandlerPlugin);
   app.register(registerCors);

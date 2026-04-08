@@ -100,30 +100,29 @@ export function ProductsTable({
     >
       {/* ── Toolbar de filtros ───────────────────────────────── */}
       <div
-        className="border-b px-5 py-4"
+        className="flex flex-col gap-4 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
         style={{
           borderColor: "var(--border-soft)",
           background: "var(--surface-2)",
         }}
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2
-              className="text-sm font-semibold"
-              style={{ color: "var(--foreground)" }}
-            >
-              Listado
-            </h2>
-            <p
-              className="mt-0.5 text-xs"
-              style={{ color: "var(--foreground-muted)" }}
-            >
-              {filtered.length} producto{filtered.length !== 1 ? "s" : ""}
-            </p>
-          </div>
+        <div>
+          <h2
+            className="text-sm font-semibold"
+            style={{ color: "var(--foreground)" }}
+          >
+            Listado
+          </h2>
+          <p
+            className="mt-0.5 text-xs"
+            style={{ color: "var(--foreground-muted)" }}
+          >
+            {filtered.length} producto{filtered.length !== 1 ? "s" : ""}
+          </p>
+        </div>
 
-          {/* Filtros compactos */}
-          <div className="flex flex-wrap gap-2">
+        {/* Filtros compactos */}
+        <div className="flex flex-wrap items-center gap-2">
             {/* Búsqueda */}
             <div className="relative">
               <span
@@ -182,11 +181,29 @@ export function ProductsTable({
               }}
             >
               <option value="all">Todos los tipos</option>
-              <option value="prepared">Preparado</option>
+              <option value="prepared">Preparadas</option>
               <option value="resale">Reventa</option>
-              <option value="combo">Combo</option>
+              <option value="combo">Combos</option>
             </select>
-          </div>
+
+            {/* Limpiar Filtros */}
+            {(search !== "" || statusFilter !== "all" || kindFilter !== "all") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setStatusFilter("all");
+                  setKindFilter("all");
+                }}
+                className="rounded-xl px-3 py-2 text-xs font-semibold transition hover:opacity-80"
+                style={{
+                  color: "var(--foreground-soft)",
+                  background: "var(--surface-3)",
+                }}
+              >
+                Limpiar
+              </button>
+            )}
         </div>
       </div>
 
@@ -230,7 +247,7 @@ export function ProductsTable({
                 return (
                   <tr
                     key={product.id}
-                    className="align-top transition"
+                    className="align-middle transition"
                     style={{
                       background: isSelected
                         ? "var(--warning-soft)"
@@ -400,19 +417,17 @@ export function ProductsTable({
                           disabled={isToggling}
                           title="Editar"
                           className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
-                          style={
-                            isSelected
-                              ? {
-                                  background: "var(--warning)",
-                                  borderColor: "var(--warning)",
-                                  color: "#fff",
-                                }
-                              : {
-                                  background: "var(--surface-2)",
-                                  borderColor: "var(--border)",
-                                  color: "var(--foreground-soft)",
-                                }
-                          }
+                          style={{
+                            background: isSelected
+                              ? "var(--warning)"
+                              : "var(--surface-2)",
+                            borderColor: isSelected
+                              ? "var(--warning)"
+                              : "var(--border)",
+                            color: isSelected
+                              ? "#fff"
+                              : "var(--foreground-soft)",
+                          }}
                         >
                           <MdEdit size={13} />
                           <span>Editar</span>

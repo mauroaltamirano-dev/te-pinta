@@ -6,6 +6,8 @@ export const ordersMapper = {
       id: order.id,
       clientId: order.clientId,
       customerNameSnapshot: order.customerNameSnapshot,
+      customerPhoneSnapshot: order.customerPhoneSnapshot,
+      customerAddressSnapshot: order.customerAddressSnapshot,
       status: order.status,
       channel: order.channel,
       deliveryDate: order.deliveryDate?.toISOString() ?? null,
@@ -50,4 +52,30 @@ export const ordersMapper = {
       items: this.toOrderItemListResponse(items),
     };
   },
+
+  toOperationalSummaryResponse(summary: {
+    date: string | null;
+    ordersCount: number;
+    totalUnits: number;
+    totalDozens: number;
+    varieties: Array<{
+      productId: string;
+      productName: string;
+      units: number;
+      dozens: number;
+    }>;
+  }) {
+  return {
+    date: summary.date ?? null,
+    ordersCount: summary.ordersCount,
+    totalUnits: summary.totalUnits,
+    totalDozens: summary.totalDozens,
+    varieties: summary.varieties.map((item) => ({
+      productId: item.productId,
+      productName: item.productName,
+      units: item.units,
+      dozens: item.dozens,
+    })),
+  };
+},
 };

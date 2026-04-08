@@ -1,11 +1,16 @@
-import { useMemo } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useEffect, useMemo } from "react";
+import { Controller, useForm } from "react-hook-form";
 import DatePicker, { registerLocale } from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { es } from "date-fns/locale";
+import { format, parseISO } from "date-fns";
 
 import { useIngredients } from "../ingredients/use-ingredients";
-import { useCreatePurchase } from "./use-purchases";
+import {
+  useCreatePurchase,
+  usePurchaseById,
+  useUpdatePurchase,
+} from "./use-purchases";
 
 registerLocale("es", es);
 
@@ -36,21 +41,79 @@ const UNIT_LABELS: Record<string, string> = {
   unit: "Unidad (u)",
 };
 
-export function PurchaseForm() {
+const fieldClassName =
+  "w-full rounded-xl border px-4 py-3 text-sm outline-none transition";
+
+const baseFieldStyle: React.CSSProperties = {
+  background: "var(--background)",
+  borderColor: "var(--border)",
+  color: "var(--foreground)",
+};
+
+export function PurchaseForm({
+  purchaseId,
+  onCancel,
+}: {
+  purchaseId?: string | null;
+  onCancel?: () => void;
+}) {
   const { data: ingredients } = useIngredients();
-  const mutation = useCreatePurchase();
+  const createMutation = useCreatePurchase();
+  const updateMutation = useUpdatePurchase();
+  const { data: purchase, isLoading: isPurchaseLoading } = usePurchaseById(
+    purchaseId ?? "",
+  );
+
+  const isEditing = !!purchaseId;
+  const isPending = createMutation.isPending || updateMutation.isPending;
+  const isSuccess = createMutation.isSuccess || updateMutation.isSuccess;
+  const error = createMutation.error || updateMutation.error;
 
   const { register, handleSubmit, watch, reset, setValue, control } =
     useForm<FormData>({
       defaultValues: {
-        date: new Date().toISOString().slice(0, 10),
+        date: format(new Date(), "yyyy-MM-dd"),
         type: "ingredient",
         unit: "kg",
         totalAmount: 0,
         quantity: 1,
         unitPrice: 0,
+        nameSnapshot: "",
+        ingredientId: "",
+        supplier: "",
+        notes: "",
       },
     });
+
+  useEffect(() => {
+    if (purchase) {
+      reset({
+        date: purchase.date,
+        type: purchase.type,
+        ingredientId: purchase.ingredientId ?? "",
+        nameSnapshot: purchase.nameSnapshot,
+        quantity: purchase.quantity ?? 1,
+        unit: (purchase.unit as FormData["unit"]) ?? "kg",
+        unitPrice: purchase.unitPrice ?? 0,
+        totalAmount: purchase.totalAmount,
+        supplier: purchase.supplier ?? "",
+        notes: purchase.notes ?? "",
+      });
+    } else if (!purchaseId) {
+      reset({
+        date: format(new Date(), "yyyy-MM-dd"),
+        type: "ingredient",
+        unit: "kg",
+        totalAmount: 0,
+        quantity: 1,
+        unitPrice: 0,
+        nameSnapshot: "",
+        ingredientId: "",
+        supplier: "",
+        notes: "",
+      });
+    }
+  }, [purchase, purchaseId, reset]);
 
   const type = watch("type");
   const ingredientId = watch("ingredientId");
@@ -64,52 +127,6 @@ export function PurchaseForm() {
     [ingredients, ingredientId],
   );
 
-  const onSubmit = (data: FormData) => {
-    mutation.mutate(
-      {
-        date: data.date,
-        type: data.type,
-        ingredientId: isIngredient ? data.ingredientId : undefined,
-        nameSnapshot:
-          isIngredient && selectedIngredient
-            ? selectedIngredient.name
-            : data.nameSnapshot,
-        quantity: isIngredient ? Number(data.quantity) : undefined,
-        unit: isIngredient ? data.unit : undefined,
-        unitPrice: isIngredient ? Number(data.unitPrice) : undefined,
-        totalAmount: Number(data.totalAmount),
-        supplier: data.supplier || undefined,
-        notes: data.notes || undefined,
-      },
-      {
-        onSuccess: () => {
-          reset({
-            date: new Date().toISOString().slice(0, 10),
-            type: "ingredient",
-            unit: "kg",
-            totalAmount: 0,
-            quantity: 1,
-            unitPrice: 0,
-          });
-        },
-      },
-    );
-  };
-
-  const handleIngredientChange = (value: string) => {
-    setValue("ingredientId", value);
-
-    const ingredient = ingredients?.find((item) => item.id === value);
-
-    if (ingredient) {
-      setValue("nameSnapshot", ingredient.name);
-      setValue("unit", ingredient.unit);
-      setValue("unitPrice", ingredient.currentCost);
-      const nextQuantity = quantity || 1;
-      setValue("totalAmount", nextQuantity * ingredient.currentCost);
-    }
-  };
-
   const handleQuantityOrPriceChange = (
     nextQuantity?: number,
     nextUnitPrice?: number,
@@ -119,255 +136,469 @@ export function PurchaseForm() {
     setValue("totalAmount", qty * price);
   };
 
+  const onSubmit = (data: FormData) => {
+    const payload = {
+      date: data.date,
+      type: data.type,
+      ingredientId: isIngredient ? data.ingredientId || undefined : undefined,
+      nameSnapshot:
+        isIngredient && selectedIngredient
+          ? selectedIngredient.name
+          : data.nameSnapshot,
+      quantity: isIngredient ? Number(data.quantity) : undefined,
+      unit: isIngredient ? data.unit : undefined,
+      unitPrice: isIngredient ? Number(data.unitPrice) : undefined,
+      totalAmount: Number(data.totalAmount),
+      supplier: data.supplier || undefined,
+      notes: data.notes || undefined,
+    };
+
+    if (isEditing && purchase) {
+      updateMutation.mutate(
+        { id: purchase.id, data: payload },
+        {
+          onSuccess: () => {
+            onCancel?.();
+          },
+        },
+      );
+    } else {
+      createMutation.mutate(payload, {
+        onSuccess: () => {
+          reset({
+            date: format(new Date(), "yyyy-MM-dd"),
+            type: "ingredient",
+            unit: "kg",
+            totalAmount: 0,
+            quantity: 1,
+            unitPrice: 0,
+          });
+          onCancel?.();
+        },
+      });
+    }
+  };
+
+  const handleIngredientChange = (value: string) => {
+    setValue("ingredientId", value);
+
+    const ingredient = ingredients?.find((item) => item.id === value);
+
+    if (ingredient) {
+      setValue("nameSnapshot", ingredient.name);
+      setValue("unit", ingredient.unit as FormData["unit"]);
+      setValue("unitPrice", ingredient.currentCost);
+      const nextQuantity = quantity || 1;
+      setValue("totalAmount", nextQuantity * ingredient.currentCost);
+    }
+  };
+
+  if (isEditing && isPurchaseLoading) {
+    return (
+      <div className="p-6 text-sm" style={{ color: "var(--foreground-muted)" }}>
+        Cargando datos de la compra...
+      </div>
+    );
+  }
+
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="space-y-5 rounded-3xl border border-sombra bg-crema p-5 shadow-sm"
+      className="flex h-full flex-col"
+      style={{
+        background: "var(--surface)",
+        color: "var(--foreground)",
+      }}
     >
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cafe/65">
-          Nueva compra
-        </p>
-        <h2 className="mt-2 text-xl font-bold text-bordo">
-          Registrar compra o gasto
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-cafe/80">
-          Registrá una compra de ingrediente, un gasto operativo o una
-          inversión. Todos los movimientos quedan asentados en el libro de
-          cuentas.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-cafe">
-          Fecha de la compra
-        </label>
-        <p className="text-xs leading-5 text-cafe/70">
-          Fecha en la que realizaste la compra o en la que se efectuó el gasto.
-        </p>
-        <Controller
-          name="date"
-          control={control}
-          render={({ field }) => (
-            <DatePicker
-              locale="es"
-              dateFormat="dd/MM/yyyy"
-              selected={field.value ? new Date(field.value) : null}
-              onChange={(date: Date | null) =>
-                field.onChange(date ? date.toISOString().slice(0, 10) : "")
-              }
-              className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition focus:border-bordo"
-              wrapperClassName="w-full"
-              placeholderText="dd/mm/aaaa"
-            />
-          )}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label htmlFor="purchase-type" className="text-sm font-semibold text-cafe">
-          Tipo de compra o gasto
-        </label>
-        <p className="text-xs leading-5 text-cafe/70">
-          Elegí si es un insumo de producción, un gasto del negocio (luz, gas,
-          etc.) o una inversión (equipamiento, herramientas).
-        </p>
-        <select
-          id="purchase-type"
-          {...register("type")}
-          className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition focus:border-bordo"
-        >
-          {Object.entries(TYPE_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {isIngredient ? (
-        <div className="space-y-2">
-          <label htmlFor="purchase-ingredient" className="text-sm font-semibold text-cafe">
-            Ingrediente
-          </label>
-          <p className="text-xs leading-5 text-cafe/70">
-            Seleccioná el ingrediente que compraste. Al elegirlo, se completarán
-            automáticamente la unidad y el precio de referencia.
-          </p>
-          <select
-            id="purchase-ingredient"
-            value={ingredientId || ""}
-            onChange={(e) => handleIngredientChange(e.target.value)}
-            className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition focus:border-bordo"
-          >
-            <option value="">Seleccionar ingrediente</option>
-            {ingredients?.map((ingredient) => (
-              <option key={ingredient.id} value={ingredient.id}>
-                {ingredient.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <label htmlFor="purchase-name" className="text-sm font-semibold text-cafe">
-            Descripción del gasto
-          </label>
-          <p className="text-xs leading-5 text-cafe/70">
-            Describí el gasto o inversión brevemente. Este texto quedará
-            registrado en el libro de cuentas.
-          </p>
-          <input
-            id="purchase-name"
-            {...register("nameSnapshot")}
-            placeholder="Ej: Factura de gas de marzo"
-            className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition placeholder:text-cafe/45 focus:border-bordo"
-          />
-        </div>
-      )}
-
-      {isIngredient ? (
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="space-y-2">
-            <label htmlFor="purchase-quantity" className="text-sm font-semibold text-cafe">
-              Cantidad
-            </label>
-            <p className="text-xs leading-5 text-cafe/70">
-              Cantidad comprada en la unidad seleccionada.
-            </p>
-            <input
-              id="purchase-quantity"
-              type="number"
-              step="0.01"
-              min="0"
-              {...register("quantity", { valueAsNumber: true })}
-              onChange={(e) => {
-                const value = Number(e.target.value);
-                setValue("quantity", value);
-                handleQuantityOrPriceChange(value, undefined);
-              }}
-              placeholder="Ej: 25"
-              className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition focus:border-bordo"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="purchase-unit" className="text-sm font-semibold text-cafe">
-              Unidad de medida
-            </label>
-            <p className="text-xs leading-5 text-cafe/70">
-              Unidad en que se mide la cantidad comprada.
-            </p>
-            <select
-              id="purchase-unit"
-              {...register("unit")}
-              className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition focus:border-bordo"
-            >
-              {Object.entries(UNIT_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="purchase-unit-price" className="text-sm font-semibold text-cafe">
-              Precio por unidad
-            </label>
-            <p className="text-xs leading-5 text-cafe/70">
-              Precio pagado por cada unidad. El total se calcula automáticamente.
-            </p>
-            <input
-              id="purchase-unit-price"
-              type="number"
-              step="0.01"
-              min="0"
-              {...register("unitPrice", { valueAsNumber: true })}
-              onChange={(e) => {
-                const value = Number(e.target.value);
-                setValue("unitPrice", value);
-                handleQuantityOrPriceChange(undefined, value);
-              }}
-              placeholder="Ej: 850"
-              className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition focus:border-bordo"
-            />
-          </div>
-        </div>
-      ) : null}
-
-      <div className="space-y-2">
-        <label htmlFor="purchase-total" className="text-sm font-semibold text-cafe">
-          Total pagado
-        </label>
-        <p className="text-xs leading-5 text-cafe/70">
-          {isIngredient
-            ? "Se calcula automáticamente a partir de cantidad × precio unitario. Podés ajustarlo si el monto final difiere."
-            : "Monto total de este gasto o inversión."}
-        </p>
-        <input
-          id="purchase-total"
-          type="number"
-          step="0.01"
-          min="0"
-          {...register("totalAmount", { valueAsNumber: true })}
-          placeholder="Ej: 21250"
-          className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition focus:border-bordo"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label htmlFor="purchase-supplier" className="text-sm font-semibold text-cafe">
-          Proveedor <span className="font-normal text-cafe/50">(opcional)</span>
-        </label>
-        <p className="text-xs leading-5 text-cafe/70">
-          Nombre del proveedor o comercio donde realizaste la compra.
-        </p>
-        <input
-          id="purchase-supplier"
-          {...register("supplier")}
-          placeholder="Ej: Distribuidora El Trigal"
-          className="w-full rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition placeholder:text-cafe/45 focus:border-bordo"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label htmlFor="purchase-notes" className="text-sm font-semibold text-cafe">
-          Notas <span className="font-normal text-cafe/50">(opcional)</span>
-        </label>
-        <p className="text-xs leading-5 text-cafe/70">
-          Cualquier observación adicional sobre esta compra o gasto.
-        </p>
-        <textarea
-          id="purchase-notes"
-          {...register("notes")}
-          rows={2}
-          placeholder="Ej: Precio por flete incluido"
-          className="w-full resize-none rounded-2xl border border-sombra bg-white/60 px-4 py-3 text-cafe outline-none transition placeholder:text-cafe/45 focus:border-bordo"
-        />
-      </div>
-
-      <button
-        type="submit"
-        className="w-full rounded-2xl bg-bordo px-4 py-3 text-sm font-semibold text-crema transition hover:bg-cafe disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={mutation.isPending}
+      {/* ── Header ────────────────────────────────────────────── */}
+      <div
+        className="shrink-0 border-b px-5 py-4 md:px-6"
+        style={{
+          background: isEditing ? "var(--warning-soft)" : "var(--surface-2)",
+          borderColor: isEditing ? "var(--warning)" : "var(--border-soft)",
+        }}
       >
-        {mutation.isPending ? "Guardando compra..." : "Guardar compra"}
-      </button>
+        <p
+          className="text-xs font-semibold uppercase tracking-[0.18em]"
+          style={{
+            color: isEditing
+              ? "var(--warning-text)"
+              : "var(--foreground-muted)",
+          }}
+        >
+          {isEditing ? "Editar compra" : "Nueva compra"}
+        </p>
+        <h2
+          className="mt-1 text-lg font-bold"
+          style={{
+            color: isEditing ? "var(--warning-text)" : "var(--foreground)",
+          }}
+        >
+          {isEditing ? "Actualizar compra o gasto" : "Registrar compra o gasto"}
+        </h2>
+        <p
+          className="mt-1 text-sm"
+          style={{ color: "var(--foreground-muted)" }}
+        >
+          {isEditing
+            ? "Modificá los datos de la compra."
+            : "Registrá una compra de ingrediente, un gasto operativo o una inversión."}
+        </p>
+      </div>
 
-      {mutation.isError ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {mutation.error instanceof Error
-            ? mutation.error.message
-            : "Ocurrió un error al guardar la compra"}
-        </div>
-      ) : null}
+      {/* ── Body ──────────────────────────────────────────────── */}
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-6 p-5 md:p-6">
+        <section className="space-y-4">
+          <div>
+            <h3
+              className="text-sm font-semibold"
+              style={{ color: "var(--foreground)" }}
+            >
+              Datos generales
+            </h3>
+            <p
+              className="mt-1 text-xs"
+              style={{ color: "var(--foreground-muted)" }}
+            >
+              Fecha, tipo de registro y referencia principal.
+            </p>
+          </div>
 
-      {mutation.isSuccess ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          Compra registrada correctamente.
+          <div className="grid gap-4">
+            <div className="space-y-1.5">
+              <label
+                className="text-sm font-medium"
+                style={{ color: "var(--foreground-soft)" }}
+              >
+                Fecha de la compra
+              </label>
+
+              <Controller
+                name="date"
+                control={control}
+                render={({ field }) => (
+                  <DatePicker
+                    locale="es"
+                    dateFormat="dd/MM/yyyy"
+                    selected={field.value ? parseISO(field.value) : null}
+                    onChange={(date: Date | null) =>
+                      field.onChange(
+                        date ? format(date, "yyyy-MM-dd") : "",
+                      )
+                    }
+                    className={fieldClassName}
+                    wrapperClassName="w-full"
+                    placeholderText="dd/mm/aaaa"
+                  />
+                )}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="purchase-type"
+                className="text-sm font-medium"
+                style={{ color: "var(--foreground-soft)" }}
+              >
+                Tipo de compra o gasto
+              </label>
+
+              <select
+                id="purchase-type"
+                {...register("type")}
+                className={fieldClassName}
+                style={baseFieldStyle}
+              >
+                {Object.entries(TYPE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {isIngredient ? (
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="purchase-ingredient"
+                  className="text-sm font-medium"
+                  style={{ color: "var(--foreground-soft)" }}
+                >
+                  Ingrediente
+                </label>
+
+                <select
+                  id="purchase-ingredient"
+                  value={ingredientId || ""}
+                  onChange={(e) => handleIngredientChange(e.target.value)}
+                  className={fieldClassName}
+                  style={baseFieldStyle}
+                >
+                  <option value="">Seleccionar ingrediente</option>
+                  {ingredients?.map((ingredient) => (
+                    <option key={ingredient.id} value={ingredient.id}>
+                      {ingredient.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="purchase-name"
+                  className="text-sm font-medium"
+                  style={{ color: "var(--foreground-soft)" }}
+                >
+                  Descripción del gasto
+                </label>
+
+                <input
+                  id="purchase-name"
+                  {...register("nameSnapshot")}
+                  placeholder="Ej: Factura de gas de marzo"
+                  className={fieldClassName}
+                  style={baseFieldStyle}
+                />
+              </div>
+            )}
+          </div>
+        </section>
+
+        {isIngredient ? (
+          <section className="space-y-4">
+            <div>
+              <h3
+                className="text-sm font-semibold"
+                style={{ color: "var(--foreground)" }}
+              >
+                Detalle del insumo
+              </h3>
+              <p
+                className="mt-1 text-xs"
+                style={{ color: "var(--foreground-muted)" }}
+              >
+                Cantidad, unidad y precio de compra.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="purchase-quantity"
+                  className="text-sm font-medium"
+                  style={{ color: "var(--foreground-soft)" }}
+                >
+                  Cantidad
+                </label>
+                <input
+                  id="purchase-quantity"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  {...register("quantity", { valueAsNumber: true })}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setValue("quantity", value);
+                    handleQuantityOrPriceChange(value, undefined);
+                  }}
+                  placeholder="Ej: 25"
+                  className={fieldClassName}
+                  style={baseFieldStyle}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="purchase-unit"
+                  className="text-sm font-medium"
+                  style={{ color: "var(--foreground-soft)" }}
+                >
+                  Unidad de medida
+                </label>
+                <select
+                  id="purchase-unit"
+                  {...register("unit")}
+                  className={fieldClassName}
+                  style={baseFieldStyle}
+                >
+                  {Object.entries(UNIT_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="purchase-unit-price"
+                  className="text-sm font-medium"
+                  style={{ color: "var(--foreground-soft)" }}
+                >
+                  Precio por unidad
+                </label>
+                <input
+                  id="purchase-unit-price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  {...register("unitPrice", { valueAsNumber: true })}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setValue("unitPrice", value);
+                    handleQuantityOrPriceChange(undefined, value);
+                  }}
+                  placeholder="Ej: 850"
+                  className={fieldClassName}
+                  style={baseFieldStyle}
+                />
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        <section className="space-y-4">
+          <div>
+            <h3
+              className="text-sm font-semibold"
+              style={{ color: "var(--foreground)" }}
+            >
+              Información económica
+            </h3>
+            <p
+              className="mt-1 text-xs"
+              style={{ color: "var(--foreground-muted)" }}
+            >
+              Total, proveedor y notas adicionales.
+            </p>
+          </div>
+
+          <div className="grid gap-4">
+            <div className="space-y-1.5">
+              <label
+                htmlFor="purchase-total"
+                className="text-sm font-medium"
+                style={{ color: "var(--foreground-soft)" }}
+              >
+                Total pagado
+              </label>
+              <input
+                id="purchase-total"
+                type="number"
+                step="0.01"
+                min="0"
+                {...register("totalAmount", { valueAsNumber: true })}
+                placeholder="Ej: 21250"
+                className={fieldClassName}
+                style={baseFieldStyle}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="purchase-supplier"
+                className="text-sm font-medium"
+                style={{ color: "var(--foreground-soft)" }}
+              >
+                Proveedor
+              </label>
+              <input
+                id="purchase-supplier"
+                {...register("supplier")}
+                placeholder="Ej: Distribuidora El Trigal"
+                className={fieldClassName}
+                style={baseFieldStyle}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="purchase-notes"
+                className="text-sm font-medium"
+                style={{ color: "var(--foreground-soft)" }}
+              >
+                Notas
+              </label>
+              <textarea
+                id="purchase-notes"
+                {...register("notes")}
+                rows={3}
+                placeholder="Ej: Precio por flete incluido"
+                className={`${fieldClassName} resize-none`}
+                style={baseFieldStyle}
+              />
+            </div>
+          </div>
+        </section>
+
+        {error ? (
+          <div
+            className="rounded-xl border px-4 py-3 text-sm"
+            style={{
+              background: "var(--danger-soft)",
+              borderColor: "var(--danger)",
+              color: "var(--danger)",
+            }}
+          >
+            {error instanceof Error
+              ? error.message
+              : "Ocurrió un error al guardar la compra"}
+          </div>
+        ) : null}
+
+        {isSuccess ? (
+          <div
+            className="rounded-xl border px-4 py-3 text-sm"
+            style={{
+              background: "var(--success-soft)",
+              borderColor: "var(--success)",
+              color: "var(--success)",
+            }}
+          >
+            Compra {isEditing ? "actualizada" : "registrada"} correctamente.
+          </div>
+        ) : null}
+      </div>
+
+      {/* ── Footer Pegajoso ───────────────────────────────────── */}
+      <div
+        className="shrink-0 border-t p-5 md:p-6"
+        style={{
+          background: "var(--surface)",
+          borderColor: "var(--border-soft)",
+        }}
+      >
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-xl border px-4 py-2.5 text-sm font-semibold transition"
+            style={{
+              borderColor: "var(--border)",
+              background: "transparent",
+              color: "var(--foreground-soft)",
+            }}
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="submit"
+            className="rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+            style={{
+              background: isEditing ? "var(--warning)" : "var(--primary)",
+              color: isEditing ? "#fff" : "var(--primary-foreground)",
+            }}
+            disabled={isPending}
+          >
+            {isPending
+              ? "Guardando..."
+              : isEditing
+                ? "Guardar cambios"
+                : "Guardar compra"}
+          </button>
         </div>
-      ) : null}
+      </div>
     </form>
   );
 }

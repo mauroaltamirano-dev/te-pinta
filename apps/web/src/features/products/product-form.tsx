@@ -121,7 +121,10 @@ export function ProductForm({ product, onCancelEdit }: ProductFormProps) {
       );
     } else {
       createMutation.mutate(payload, {
-        onSuccess: () => reset(EMPTY_DEFAULTS),
+        onSuccess: () => {
+          reset(EMPTY_DEFAULTS);
+          onCancelEdit?.();
+        },
       });
     }
   };
@@ -213,19 +216,10 @@ export function ProductForm({ product, onCancelEdit }: ProductFormProps) {
 
   /* ── render ───────────────────────────────────────────────── */
   return (
-    <div
-      className="overflow-hidden rounded-2xl border transition-all"
-      style={{
-        background: "var(--surface)",
-        borderColor: isEditing ? "var(--warning)" : "var(--border)",
-        boxShadow: isEditing
-          ? "0 0 0 3px var(--warning-soft)"
-          : "var(--shadow-sm)",
-      }}
-    >
+    <div className="flex h-full flex-col text-sm transition-colors">
       {/* ── Header ──────────────────────────────────────────── */}
       <div
-        className="flex items-center justify-between border-b px-5 py-4"
+        className="shrink-0 flex items-center justify-between border-b px-5 py-4"
         style={{
           borderColor: isEditing ? "var(--warning)" : "var(--border-soft)",
           background: isEditing ? "var(--warning-soft)" : "var(--surface-2)",
@@ -265,10 +259,20 @@ export function ProductForm({ product, onCancelEdit }: ProductFormProps) {
       </div>
 
       {/* ── Cuerpo ──────────────────────────────────────────── */}
-      <form onSubmit={handleSubmit(onSubmit)} className="p-5">
-        {/* Fila 1: Categoría + Nombre */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
+      <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+        <div className="flex-1 overflow-y-auto space-y-6 p-5">
+        
+        {/* Bloque: Información General */}
+        <div className="space-y-4">
+          <p
+            className="text-xs font-semibold uppercase tracking-wider"
+            style={{ color: "var(--foreground-muted)" }}
+          >
+            Información general
+          </p>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
             <label htmlFor="prod-cat" className={labelCls} style={labelStyle}>
               Categoría <span style={{ color: "var(--danger)" }}>*</span>
             </label>
@@ -310,8 +314,8 @@ export function ProductForm({ product, onCancelEdit }: ProductFormProps) {
         </div>
 
         {/* Fila 2: Descripción + Tipo */}
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
             <label htmlFor="prod-desc" className={labelCls} style={labelStyle}>
               Descripción{" "}
               <span
@@ -386,23 +390,25 @@ export function ProductForm({ product, onCancelEdit }: ProductFormProps) {
               </span>
             </div>
           </div>
+          </div>
         </div>
 
         {/* Divider */}
         <div
-          className="my-5 border-t"
+          className="border-t"
           style={{ borderColor: "var(--border-soft)" }}
         />
 
-        {/* Fila 3: Precios */}
-        <p
-          className="mb-3 text-xs font-semibold uppercase tracking-wider"
-          style={{ color: "var(--foreground-muted)" }}
-        >
-          Precios de venta
-        </p>
+        {/* Bloque: Precios de venta */}
+        <div className="space-y-4">
+          <p
+            className="text-xs font-semibold uppercase tracking-wider"
+            style={{ color: "var(--foreground-muted)" }}
+          >
+            Precios de venta
+          </p>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-3">
           {moneyField(
             "prod-unit-price",
             "unitPrice",
@@ -422,29 +428,32 @@ export function ProductForm({ product, onCancelEdit }: ProductFormProps) {
               {moneyField("prod-dozen", "dozenPrice", "Docena", "15.000")}
             </>
           )}
+          </div>
         </div>
 
-        {/* Costo directo — solo resale/combo */}
+        {/* Bloque: Costo directo — solo resale/combo */}
         {needsDirectCost && (
           <>
             <div
-              className="my-5 border-t"
+              className="border-t"
               style={{ borderColor: "var(--border-soft)" }}
             />
-            <p
-              className="mb-3 text-xs font-semibold uppercase tracking-wider"
-              style={{ color: "var(--foreground-muted)" }}
-            >
-              Costo
-            </p>
-            <div className="max-w-xs">
-              {moneyField(
-                "prod-direct-cost",
-                "directCost",
-                "Costo directo por unidad",
-                "900",
-                needsDirectCost,
-              )}
+            <div className="space-y-4">
+              <p
+                className="text-xs font-semibold uppercase tracking-wider"
+                style={{ color: "var(--foreground-muted)" }}
+              >
+                Costo directo
+              </p>
+              <div className="max-w-xs">
+                {moneyField(
+                  "prod-direct-cost",
+                  "directCost",
+                  "Costo directo por unidad",
+                  "900",
+                  needsDirectCost,
+                )}
+              </div>
             </div>
           </>
         )}
@@ -478,12 +487,20 @@ export function ProductForm({ product, onCancelEdit }: ProductFormProps) {
         )}
 
         {/* Acciones */}
-        <div className="mt-5 flex gap-2">
-          {isEditing && (
+        </div>
+
+        <div
+          className="shrink-0 border-t p-5"
+          style={{
+            borderColor: "var(--border-soft)",
+            background: "var(--surface)",
+          }}
+        >
+          <div className="flex gap-2">
             <button
               type="button"
               onClick={onCancelEdit}
-              className="rounded-xl border px-5 py-2.5 text-sm font-semibold transition"
+              className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition hover:opacity-80"
               style={{
                 borderColor: "var(--border)",
                 color: "var(--foreground-muted)",
@@ -492,24 +509,25 @@ export function ProductForm({ product, onCancelEdit }: ProductFormProps) {
             >
               Cancelar
             </button>
-          )}
-          <button
-            type="submit"
-            disabled={isPending}
-            className="flex-1 rounded-xl px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
-            style={{
-              background: isEditing ? "var(--warning)" : "var(--primary)",
-              color: isEditing ? "#fff" : "var(--primary-foreground)",
-            }}
-          >
-            {isPending
-              ? isEditing
-                ? "Guardando..."
-                : "Registrando..."
-              : isEditing
-                ? "Guardar cambios"
-                : "Registrar producto"}
-          </button>
+            
+            <button
+              type="submit"
+              disabled={isPending}
+              className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              style={{
+                background: isEditing ? "var(--warning)" : "var(--primary)",
+                color: isEditing ? "#fff" : "var(--primary-foreground)",
+              }}
+            >
+              {isPending
+                ? isEditing
+                  ? "Guardando..."
+                  : "Creando..."
+                : isEditing
+                  ? "Guardar cambios"
+                  : "Crear producto"}
+            </button>
+          </div>
         </div>
       </form>
     </div>

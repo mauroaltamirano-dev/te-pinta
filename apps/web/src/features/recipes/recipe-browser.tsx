@@ -11,6 +11,7 @@ import { useIngredients } from "../ingredients/use-ingredients";
 import { useProducts } from "../products/use-products";
 import { RecipeItemForm } from "./recipe-item-form";
 import { RecipeForm } from "./recipe-form";
+import { Drawer } from "../../components/ui/Drawer";
 import {
   useDeactivateRecipe,
   useDeleteRecipeItem,
@@ -22,8 +23,12 @@ import {
 
 type RecipeUnit = "kg" | "g" | "l" | "ml" | "unit";
 
-export function RecipeBrowser() {
-  const [selectedProductId, setSelectedProductId] = useState("");
+type RecipeBrowserProps = {
+  selectedProductId: string;
+  onSelectProductId: (id: string) => void;
+};
+
+export function RecipeBrowser({ selectedProductId, onSelectProductId }: RecipeBrowserProps) {
   const [isEditingRecipe, setIsEditingRecipe] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingItemQuantity, setEditingItemQuantity] = useState("");
@@ -97,7 +102,7 @@ export function RecipeBrowser() {
             id="recipe-selector"
             value={selectedProductId}
             onChange={(e) => {
-              setSelectedProductId(e.target.value);
+              onSelectProductId(e.target.value);
               setIsEditingRecipe(false);
               setEditingItemId(null);
             }}
@@ -298,12 +303,12 @@ export function RecipeBrowser() {
             </div>
 
             {/* Form edición receta */}
-            {isEditingRecipe && (
+            <Drawer open={isEditingRecipe} onClose={() => setIsEditingRecipe(false)}>
               <RecipeForm
                 recipe={recipe}
                 onCancelEdit={() => setIsEditingRecipe(false)}
               />
-            )}
+            </Drawer>
 
             {/* Form agregar ingrediente */}
             {isActive && <RecipeItemForm recipeId={recipe.id} />}

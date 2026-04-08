@@ -15,6 +15,7 @@ import {
   ReceiptText,
   Users,
   Settings,
+  CalendarDays,
   type LucideIcon,
 } from "lucide-react";
 
@@ -97,6 +98,12 @@ const navItems: NavItem[] = [
     icon: ReceiptText,
     group: "finanzas",
   },
+  {
+    to: APP_ROUTES.weeklyClosures,
+    label: "Caja Semanal",
+    icon: CalendarDays,
+    group: "finanzas",
+  },
   { to: APP_ROUTES.clients, label: "Clientes", icon: Users, group: "finanzas" },
   {
     to: APP_ROUTES.settings,
@@ -130,34 +137,40 @@ export function Sidebar({
         "transition-[width,transform] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]",
         // Desktop: sticky, visible, ancho según estado
         "md:sticky md:top-0 md:z-auto md:translate-x-0",
-        collapsed ? "md:w-[72px]" : "md:w-64",
+        collapsed ? "md:w-[68px]" : "md:w-60",
         // Mobile: fuera de pantalla o visible
-        mobileOpen ? "translate-x-0 w-72" : "-translate-x-full w-72",
+        mobileOpen ? "translate-x-0 w-68" : "-translate-x-full w-68",
       ]
         .filter(Boolean)
         .join(" ")}
       aria-label="Menú de navegación"
     >
       {/* ── Header del sidebar ── */}
-      <div className="flex h-16 shrink-0 items-center border-b border-border-soft px-3">
+      <div className="flex h-14 shrink-0 items-center border-b border-border-soft px-3">
         {collapsed ? (
           /* Collapsed: solo logo, centrado */
           <div className="flex w-full items-center justify-center">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-app-sm">
-              <ChefHat size={17} />
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground"
+              style={{ boxShadow: "0 1px 2px rgba(192, 122, 82, 0.25)" }}
+            >
+              <ChefHat size={15} />
             </div>
           </div>
         ) : (
           /* Expanded: logo + nombre + botón collapse */
-          <div className="flex w-full items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-app-sm">
-              <ChefHat size={17} />
+          <div className="flex w-full items-center gap-2.5">
+            <div
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"
+              style={{ boxShadow: "0 1px 2px rgba(192, 122, 82, 0.25)" }}
+            >
+              <ChefHat size={15} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-foreground-faint">
+              <p className="truncate text-sm font-bold tracking-tight text-foreground">
                 Te Pinta
               </p>
-              <p className="truncate text-sm font-semibold text-foreground">
+              <p className="text-[10px] font-medium text-foreground-faint">
                 Gestión interna
               </p>
             </div>
@@ -165,21 +178,21 @@ export function Sidebar({
             <button
               type="button"
               onClick={onToggleCollapse}
-              className="hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-foreground-muted transition hover:bg-surface-2 hover:text-foreground"
+              className="hidden md:inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-foreground-faint transition hover:bg-surface-2 hover:text-foreground-muted"
               aria-label="Ocultar sidebar"
               title="Ocultar sidebar"
             >
-              <PanelLeftClose size={16} />
+              <PanelLeftClose size={15} />
             </button>
             {/* Botón cerrar — solo mobile */}
             <button
               type="button"
               onClick={onCloseMobile}
-              className="inline-flex md:hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-foreground-muted transition hover:bg-surface-2 hover:text-foreground"
+              className="inline-flex md:hidden h-7 w-7 shrink-0 items-center justify-center rounded-md text-foreground-faint transition hover:bg-surface-2 hover:text-foreground-muted"
               aria-label="Cerrar menú"
               title="Cerrar menú"
             >
-              <X size={16} />
+              <X size={15} />
             </button>
           </div>
         )}
@@ -187,22 +200,22 @@ export function Sidebar({
 
       {/* Botón expand cuando está colapsado — solo desktop */}
       {collapsed && (
-        <div className="hidden md:flex justify-center border-b border-border-soft py-2.5">
+        <div className="hidden md:flex justify-center py-2">
           <button
             type="button"
             onClick={onToggleCollapse}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-foreground-muted transition hover:bg-surface-2 hover:text-foreground"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground-faint transition hover:bg-surface-2 hover:text-foreground-muted"
             aria-label="Expandir sidebar"
             title="Expandir sidebar"
           >
-            <PanelLeftOpen size={16} />
+            <PanelLeftOpen size={15} />
           </button>
         </div>
       )}
 
       {/* ── Navegación ── */}
       <nav
-        className="flex-1 overflow-y-auto overflow-x-hidden py-3 px-2"
+        className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2"
         aria-label="Navegación principal"
       >
         {groups.map(({ key, label }) => {
@@ -210,19 +223,19 @@ export function Sidebar({
           if (!items.length) return null;
 
           return (
-            <div key={key} className="mb-1">
+            <div key={key} className="mb-0.5">
               {/* Etiqueta de grupo — solo cuando está expandido y tiene label */}
               {label && !collapsed && (
-                <p className="mb-1 mt-3 px-3 text-[10px] font-semibold uppercase tracking-widest text-foreground-faint">
+                <p className="mb-1 mt-4 px-2.5 text-[10px] font-semibold uppercase tracking-widest text-foreground-faint">
                   {label}
                 </p>
               )}
               {/* Separador cuando está colapsado y no es el primer grupo */}
               {label && collapsed && (
-                <div className="my-2 mx-3 border-t border-border-soft" />
+                <div className="my-2 mx-2 border-t border-border-soft" />
               )}
 
-              <ul className="flex flex-col gap-0.5">
+              <ul className="flex flex-col gap-px">
                 {items.map((item) => {
                   const Icon = item.icon;
                   return (
@@ -233,32 +246,36 @@ export function Sidebar({
                         title={collapsed ? item.label : undefined}
                         className={({ isActive }) =>
                           [
-                            "group flex items-center rounded-xl text-sm font-medium transition-all duration-150",
+                            "group relative flex items-center rounded-lg text-[13px] font-medium transition-all duration-150",
                             collapsed
-                              ? "h-10 w-10 justify-center mx-auto"
-                              : "h-10 gap-3 px-3",
+                              ? "h-9 w-9 justify-center mx-auto"
+                              : "h-9 gap-2.5 px-2.5",
                             isActive
-                              ? "bg-primary/15 text-primary"
+                              ? "bg-primary/10 text-primary font-semibold"
                               : "text-foreground-muted hover:bg-surface-2 hover:text-foreground",
                           ].join(" ")
                         }
                       >
                         {({ isActive }) => (
                           <>
+                            {/* Indicador activo — barra vertical izquierda */}
+                            {isActive && !collapsed && (
+                              <span
+                                className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-primary"
+                                style={{ opacity: 0.8 }}
+                              />
+                            )}
                             <Icon
-                              size={17}
+                              size={16}
+                              strokeWidth={isActive ? 2.2 : 1.8}
                               className={[
                                 "shrink-0 transition-transform duration-150",
-                                "group-hover:scale-[1.07]",
+                                "group-hover:scale-105",
                                 isActive ? "text-primary" : "",
                               ].join(" ")}
                             />
                             {!collapsed && (
                               <span className="truncate">{item.label}</span>
-                            )}
-                            {/* Indicador activo — barra lateral */}
-                            {isActive && !collapsed && (
-                              <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
                             )}
                           </>
                         )}
@@ -274,16 +291,18 @@ export function Sidebar({
 
       {/* ── Footer del sidebar ── */}
       {!collapsed && (
-        <div className="shrink-0 border-t border-border-soft px-4 py-3">
+        <div className="shrink-0 border-t border-border-soft px-3 py-2.5">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-3 text-xs font-semibold text-foreground-soft">
+            <div
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold text-primary"
+              style={{ background: "rgba(192, 122, 82, 0.12)" }}
+            >
               A
             </div>
             <div className="min-w-0">
               <p className="truncate text-xs font-medium text-foreground-soft">
                 Administrador
               </p>
-              <p className="text-[10px] text-foreground-faint">Panel interno</p>
             </div>
           </div>
         </div>

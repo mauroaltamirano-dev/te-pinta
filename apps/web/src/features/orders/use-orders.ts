@@ -10,12 +10,20 @@ import {
   deactivateOrder,
   reactivateOrder,
   hardDeleteOrder,
+  getOperationalOrdersSummary,
 } from '../../services/api/orders.api';
 
 export function useOrders() {
   return useQuery({
     queryKey: ['orders'],
     queryFn: getOrders,
+  });
+}
+
+export function useOperationalOrdersSummary(date?: string) {
+  return useQuery({
+    queryKey: ["orders", "operational-summary", date],
+    queryFn: () => getOperationalOrdersSummary(date),
   });
 }
 
@@ -58,7 +66,7 @@ export function useUpdateOrderStatus() {
       status:
         | 'pending'
         | 'confirmed'
-        | 'preparing'
+        | 'prepared'
         | 'delivered'
         | 'cancelled';
     }) => {

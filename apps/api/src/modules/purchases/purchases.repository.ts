@@ -1,72 +1,99 @@
+import { eq } from 'drizzle-orm';
+import { db } from '../../db/client';
+import { purchasesTable } from '../../db/schema';
 import type {
   CreatePurchaseInput,
   Purchase,
   UpdatePurchaseInput,
 } from './purchases.types';
 
-const purchases = new Map<string, Purchase>();
-
-function generatePurchaseId() {
-  return crypto.randomUUID();
-}
-
 export const purchasesRepository = {
-  findAll(): Purchase[] {
-    return Array.from(purchases.values());
+  async findAll(): Promise<Purchase[]> {
+    const result = await db.select().from(purchasesTable).orderBy(purchasesTable.createdAt);
+    return result.map((r: any) => ({
+      ...r,
+      type: r.type as any,
+      unit: r.unit as any,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    }));
   },
 
-  findById(id: string): Purchase | null {
-    return purchases.get(id) ?? null;
-  },
+  async findById(id: string): Promise<Purchase | null> {
+    const [result] = await db
+      .select()
+      .from(purchasesTable)
+      .where(eq(purchasesTable.id, id));
 
-  create(input: CreatePurchaseInput): Purchase {
-    const now = new Date().toISOString();
-
-    const purchase: Purchase = {
-      id: generatePurchaseId(),
-      date: input.date,
-      type: input.type,
-      ingredientId: input.ingredientId ?? null,
-      nameSnapshot: input.nameSnapshot,
-      quantity: input.quantity ?? null,
-      unit: input.unit ?? null,
-      unitPrice: input.unitPrice ?? null,
-      totalAmount: input.totalAmount,
-      supplier: input.supplier ?? null,
-      notes: input.notes ?? null,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    purchases.set(purchase.id, purchase);
-
-    return purchase;
-  },
-
-  update(id: string, input: UpdatePurchaseInput): Purchase | null {
-    const existing = purchases.get(id);
-
-    if (!existing) {
+    if (!result) {
       return null;
     }
 
-    const updated: Purchase = {
-      ...existing,
-      date: input.date ?? existing.date,
-      type: input.type ?? existing.type,
-      ingredientId: input.ingredientId ?? existing.ingredientId,
-      nameSnapshot: input.nameSnapshot ?? existing.nameSnapshot,
-      quantity: input.quantity ?? existing.quantity,
-      unit: input.unit ?? existing.unit,
-      unitPrice: input.unitPrice ?? existing.unitPrice,
-      totalAmount: input.totalAmount ?? existing.totalAmount,
-      supplier: input.supplier ?? existing.supplier,
-      notes: input.notes ?? existing.notes,
-      updatedAt: new Date().toISOString(),
+    return {
+      ...result,
+      type: result.type as any,
+      unit: result.unit as any,
+      createdAt: result.createdAt.toISOString(),
+      updatedAt: result.updatedAt.toISOString(),
     };
+  },
 
-    purchases.set(id, updated);
+  async create(input: CreatePurchaseInput): Promise<Purchase> {
+    const [result] = await db
+      .insert(purchasesTable)
+      .values({
+        date: input.date,
+        type: input.type,
+        ingredientId: input.ingredientId ?? null,
+        nameSnapshot: input.nameSnapshot,
+        quantity: input.quantity ?? null,
+        unit: input.unit ?? null,
+        unitPrice: input.unitPrice ?? null,
+        totalAmount: input.totalAmount,
+        supplier: input.supplier ?? null,
+        notes: input.notes ?? null,
+      })
+      .returning();
 
-    return updated;
+    return {
+      ...result,
+      type: result.type as any,
+      unit: result.unit as any,
+      createdAt: result.createdAt.toISOString(),
+      updatedAt: result.updatedAt.toISOString(),
+    };
+  },
+
+  async update(id: string, input: UpdatePurchaseInput): Promise<Purchase | null> {
+    const updateData: any = { ...input };
+    if (Object.keys(updateData).length === 0) return this.findById(id);
+    updateData.updatedAt = new Date();
+
+    const [result] = await db
+      .update(purchasesTable)
+      .set(updateData)
+      .where(eq(purchasesTable.id, id))
+      .returning();
+
+    if (!result) {
+      return null;
+    }
+
+    return {
+      ...result,
+      type: result.type as any,
+      unit: result.unit as any,
+      createdAt: result.createdAt.toISOString(),
+      updatedAt: result.updatedAt.toISOString(),
+    };
+  },
+
+  async delete(id: string): Promise<boolean> {
+    const [result] = await db
+      .delete(purchasesTable)
+      .where(eq(purchasesTable.id, id))
+      .returning({ id: purchasesTable.id });
+
+    return !!result;
   },
 };

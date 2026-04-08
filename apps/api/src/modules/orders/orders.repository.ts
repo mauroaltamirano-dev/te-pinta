@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 
 import { db } from "../../db/client";
 import { orderItemsTable, ordersTable } from "../../db/schema";
@@ -16,6 +16,8 @@ function mapRowToOrder(row: typeof ordersTable.$inferSelect): Order {
     id: row.id,
     clientId: row.clientId,
     customerNameSnapshot: row.customerNameSnapshot,
+    customerPhoneSnapshot: row.customerPhoneSnapshot,
+    customerAddressSnapshot: row.customerAddressSnapshot,
     status: row.status as Order["status"],
     channel: row.channel as Order["channel"],
     deliveryDate: row.deliveryDate,
@@ -50,7 +52,7 @@ function mapRowToOrderItem(
 
 export const ordersRepository = {
   async findAllOrders(): Promise<Order[]> {
-    const rows = await db.select().from(ordersTable);
+    const rows = await db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt));
     return rows.map(mapRowToOrder);
   },
 
@@ -67,12 +69,63 @@ export const ordersRepository = {
     return rows.map(mapRowToOrderItem);
   },
 
+  async findOrdersByDeliveryDateAndStatuses(
+  start: Date,
+  end: Date,
+  statuses: Array<Order["status"]>,
+): Promise<Order[]> {
+  const rows = await db
+    .select()
+    .from(ordersTable)
+    .where(
+      and(
+        gte(ordersTable.deliveryDate, start),
+        lt(ordersTable.deliveryDate, end),
+        inArray(ordersTable.status, statuses),
+        eq(ordersTable.isActive, true),
+      ),
+    )
+    .orderBy(desc(ordersTable.createdAt));
+
+  return rows.map(mapRowToOrder);
+},
+
+async findOrdersByStatuses(
+  statuses: Array<Order["status"]>,
+): Promise<Order[]> {
+  const rows = await db
+    .select()
+    .from(ordersTable)
+    .where(
+      and(
+        inArray(ordersTable.status, statuses),
+        eq(ordersTable.isActive, true),
+      ),
+    )
+    .orderBy(desc(ordersTable.createdAt));
+
+  return rows.map(mapRowToOrder);
+},
+
+async findItemsByOrderIds(orderIds: string[]): Promise<OrderItem[]> {
+  if (orderIds.length === 0) return [];
+
+  const rows = await db
+    .select()
+    .from(orderItemsTable)
+    .where(inArray(orderItemsTable.orderId, orderIds));
+
+  return rows.map(mapRowToOrderItem);
+},
+
   async createOrder(orderData: CreateOrderData): Promise<Order> {
     const [row] = await db
       .insert(ordersTable)
       .values({
         clientId: orderData.clientId,
         customerNameSnapshot: orderData.customerNameSnapshot,
+        customerPhoneSnapshot: orderData.customerPhoneSnapshot,
+        customerAddressSnapshot: orderData.customerAddressSnapshot,
         status: orderData.status,
         channel: orderData.channel,
         deliveryDate: orderData.deliveryDate,
@@ -128,6 +181,8 @@ export const ordersRepository = {
         Order,
         | "clientId"
         | "customerNameSnapshot"
+        | "customerPhoneSnapshot"
+        | "customerAddressSnapshot"
         | "status"
         | "channel"
         | "deliveryDate"

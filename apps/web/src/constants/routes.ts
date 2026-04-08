@@ -12,4 +12,6 @@ export const APP_ROUTES = {
   production: '/produccion',
   recipes: '/recetas',
   purchases: '/compras',
+  weeklyClosures: '/caja-semanal',
+  weeklyReport: '/caja-semanal/:id',
 } as const;

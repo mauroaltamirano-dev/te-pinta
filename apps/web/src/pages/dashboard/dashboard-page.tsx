@@ -1,138 +1,173 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 
-import { useSalesDashboard } from "../../hooks/dashboard/use-sales-dashboard";
-import { DashboardRangeFilter } from "../../features/dashboard/components/dashboard-range-filter";
-import { KpiCard } from "../../features/dashboard/components/kpi-card";
-import { RevenueSummaryCards } from "../../features/dashboard/components/revenue-summary-cards";
-import { SalesTrendChart } from "../../features/dashboard/components/sales-trend-chart";
-import { RecentSalesTable } from "../../features/dashboard/components/recent-sales-table";
-import { TopProductsList } from "../../features/dashboard/components/top-products-list";
-import { SalesByChannelList } from "../../features/dashboard/components/sales-by-channel-list";
-import type { DashboardRange } from "../../services/api/dashboard.api";
+import {
+  useWeeklyClosures,
+  useOpenClosure,
+} from "../../features/dashboard/hooks/use-weekly-closures";
+import { OperationalSection } from "../../features/dashboard/components/operational-section";
+import { WeeklySection } from "../../features/dashboard/components/weekly-section";
+import { ClosureSelector } from "../../features/dashboard/components/closure-selector";
 
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    maximumFractionDigits: 0,
-    notation: "compact",
-  }).format(value);
-}
-
-/* ── Skeleton de carga ──────────────────────────────────────── */
-function DashboardSkeleton() {
+function PageSkeleton() {
   return (
-    <div className="space-y-5 animate-pulse">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-24 rounded-2xl border"
-            style={{
-              background: "var(--surface-2)",
-              borderColor: "var(--border)",
-            }}
-          />
-        ))}
+    <div className="space-y-8 animate-pulse">
+      <div className="space-y-4">
+        <div
+          className="h-4 w-40 rounded"
+          style={{ background: "var(--surface-3)" }}
+        />
+        <div className="grid gap-3 sm:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="h-20 rounded-2xl border"
+              style={{
+                background: "var(--surface-2)",
+                borderColor: "var(--border)",
+              }}
+            />
+          ))}
+        </div>
       </div>
-      <div
-        className="h-72 rounded-2xl border"
-        style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
-      />
+
+      <div className="h-px" style={{ background: "var(--border)" }} />
+
+      <div className="space-y-4">
+        <div
+          className="h-4 w-48 rounded"
+          style={{ background: "var(--surface-3)" }}
+        />
+        <div className="grid gap-3 sm:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="h-20 rounded-2xl border"
+              style={{
+                background: "var(--surface-2)",
+                borderColor: "var(--border)",
+              }}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
-/* ── Página principal ───────────────────────────────────────── */
 export function DashboardPage() {
-  const [range, setRange] = useState<DashboardRange>("7d");
-  const { data, isLoading, isError } = useSalesDashboard(range);
+  const { data: closures, isLoading: loadingClosures } = useWeeklyClosures();
+  const { data: openClosure } = useOpenClosure();
 
-  const RANGE_LABELS: Record<DashboardRange, string> = {
-    today: "hoy",
-    "7d": "los últimos 7 días",
-    "30d": "los últimos 30 días",
-    month: "este mes",
-  };
+  const [selectedClosureId, setSelectedClosureId] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (selectedClosureId) return;
+
+    if (openClosure?.id) {
+      setSelectedClosureId(openClosure.id);
+      return;
+    }
+
+    if (closures && closures.length > 0) {
+      setSelectedClosureId(closures[0].id);
+    }
+  }, [openClosure, closures, selectedClosureId]);
+
+  const selectedClosure =
+    closures?.find((c) => c.id === selectedClosureId) ?? null;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 px-4 py-6 md:px-6">
-      {/* ── Header ─────────────────────────────────────────── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted">
-            Resumen
-          </p>
-          <h1 className="mt-1 text-2xl font-bold text-strong">Dashboard</h1>
+    <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-8">
+        <h1
+          className="text-2xl font-bold"
+          style={{ color: "var(--foreground)" }}
+        >
+          Dashboard
+        </h1>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {closures && closures.length > 0 && (
+            <ClosureSelector
+              closures={closures}
+              selectedId={selectedClosureId}
+              onChange={setSelectedClosureId}
+            />
+          )}
+
+          {!openClosure && !loadingClosures && (
+            <Link
+              to="/weekly-closures"
+              className="text-xs font-medium px-3 py-1.5 rounded-lg border hover:opacity-80 transition-opacity"
+              style={{
+                background: "rgba(192, 122, 82, 0.1)",
+                borderColor: "var(--primary)",
+                color: "var(--primary)",
+              }}
+            >
+              + Abrir caja semanal
+            </Link>
+          )}
         </div>
-        <DashboardRangeFilter value={range} onChange={setRange} />
       </div>
 
-      {/* ── Resumen global (ingresos vs egresos) ────────────── */}
-      <RevenueSummaryCards />
+      {/* Contenido */}
+      {loadingClosures ? (
+        <PageSkeleton />
+      ) : (
+        <div className="space-y-10">
+          <OperationalSection />
 
-      {/* ── Loading / Error ────────────────────────────────── */}
-      {isLoading && <DashboardSkeleton />}
-
-      {isError && (
-        <div
-          className="rounded-xl border px-5 py-4 text-sm"
-          style={{
-            background: "var(--danger-soft)",
-            borderColor: "var(--danger)",
-            color: "var(--danger-text)",
-          }}
-        >
-          No se pudo cargar el dashboard. Verificá la conexión e intentá de
-          nuevo.
-        </div>
-      )}
-
-      {/* ── Contenido ──────────────────────────────────────── */}
-      {!isLoading && !isError && data && (
-        <>
-          {/* KPIs del período */}
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <KpiCard
-              title="Ventas brutas"
-              value={formatMoney(data.summary.grossSales)}
-              helper={`En ${RANGE_LABELS[range]}`}
-              icon="💰"
-              accent="default"
+          <div
+            className="flex items-center gap-4"
+            style={{ color: "var(--foreground-muted)" }}
+          >
+            <div
+              className="flex-1 h-px"
+              style={{ background: "var(--border)" }}
             />
-            <KpiCard
-              title="Pedidos"
-              value={data.summary.totalOrders.toLocaleString("es-AR")}
-              helper="Pedidos entregados"
-              icon="📦"
-            />
-            <KpiCard
-              title="Ticket promedio"
-              value={formatMoney(data.summary.averageTicket)}
-              helper="Por pedido entregado"
-              icon="🧾"
-            />
-            <KpiCard
-              title="Items vendidos"
-              value={data.summary.totalItemsSold.toLocaleString("es-AR")}
-              helper="Unidades en el período"
-              icon="🫓"
+            <span className="text-xs font-medium uppercase tracking-widest whitespace-nowrap">
+              Análisis semanal
+            </span>
+            <div
+              className="flex-1 h-px"
+              style={{ background: "var(--border)" }}
             />
           </div>
 
-          {/* Gráfico + side panel */}
-          <div className="grid gap-5 xl:grid-cols-[2fr_1fr]">
-            <SalesTrendChart data={data.trend} />
-
-            <div className="flex flex-col gap-5">
-              <TopProductsList data={data.topProducts} />
-              <SalesByChannelList data={data.byPaymentMethod} />
+          {selectedClosure ? (
+            <WeeklySection closure={selectedClosure} />
+          ) : (
+            <div
+              className="rounded-2xl border border-dashed py-12 text-center space-y-3"
+              style={{ borderColor: "var(--border)" }}
+            >
+              <p
+                className="text-sm font-medium"
+                style={{ color: "var(--foreground)" }}
+              >
+                No hay cierres semanales registrados
+              </p>
+              <p className="text-sm" style={{ color: "var(--foreground-muted)" }}>
+                Creá una caja semanal para empezar a ver métricas del negocio.
+              </p>
+              <Link
+                to="/weekly-closures"
+                className="inline-block mt-2 text-sm font-medium px-4 py-2 rounded-lg"
+                style={{
+                  background: "var(--primary)",
+                  color: "var(--primary-foreground)",
+                }}
+              >
+                Crear caja semanal
+              </Link>
             </div>
-          </div>
-
-          {/* Últimas ventas */}
-          <RecentSalesTable data={data.recentSales} />
-        </>
+          )}
+        </div>
       )}
     </div>
   );

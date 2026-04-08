@@ -15,11 +15,11 @@ function createServiceError(statusCode: number, message: string): ServiceError {
 }
 
 export const purchasesService = {
-  getAll() {
+  async getAll() {
     return purchasesRepository.findAll();
   },
 
-  getById(id: string) {
+  async getById(id: string) {
     return purchasesRepository.findById(id);
   },
 
@@ -40,7 +40,7 @@ export const purchasesService = {
         );
       }
 
-      if (input.unitPrice !== undefined) {
+      if (input.unitPrice !== undefined && input.unitPrice !== null) {
         await ingredientsRepository.update(ingredient.id, {
           currentCost: input.unitPrice,
         });
@@ -50,47 +50,62 @@ export const purchasesService = {
     return purchasesRepository.create(input);
   },
 
-  update(id: string, input: UpdatePurchaseInput) {
-    const existing = purchasesRepository.findById(id);
+  async update(id: string, input: UpdatePurchaseInput) {
+    const existing = await purchasesRepository.findById(id);
 
     if (!existing) {
       return null;
     }
 
+    if (input.type === 'ingredient' || (existing.type === 'ingredient' && !input.type)) {
+      const unitPrice = input.unitPrice !== undefined ? input.unitPrice : existing.unitPrice;
+      const ingredientId = input.ingredientId !== undefined ? input.ingredientId : existing.ingredientId;
+      
+      if (unitPrice !== null && ingredientId) {
+        await ingredientsRepository.update(ingredientId, {
+          currentCost: unitPrice,
+        });
+      }
+    }
+
     return purchasesRepository.update(id, input);
   },
 
-  getSummary() {
-  const purchases = purchasesRepository.findAll();
+  async remove(id: string) {
+    return purchasesRepository.delete(id);
+  },
 
-  const summary = purchases.reduce(
-    (acc, purchase) => {
-      acc.totalAmount += purchase.totalAmount;
-      acc.count += 1;
+  async getSummary() {
+    const purchases = await purchasesRepository.findAll();
 
-      if (purchase.type === 'ingredient') {
-        acc.ingredientTotal += purchase.totalAmount;
-      }
+    const summary = purchases.reduce(
+      (acc, purchase) => {
+        acc.totalAmount += purchase.totalAmount;
+        acc.count += 1;
 
-      if (purchase.type === 'operational') {
-        acc.operationalTotal += purchase.totalAmount;
-      }
+        if (purchase.type === 'ingredient') {
+          acc.ingredientTotal += purchase.totalAmount;
+        }
 
-      if (purchase.type === 'investment') {
-        acc.investmentTotal += purchase.totalAmount;
-      }
+        if (purchase.type === 'operational') {
+          acc.operationalTotal += purchase.totalAmount;
+        }
 
-      return acc;
-    },
-    {
-      totalAmount: 0,
-      ingredientTotal: 0,
-      operationalTotal: 0,
-      investmentTotal: 0,
-      count: 0,
-    },
-  );
+        if (purchase.type === 'investment') {
+          acc.investmentTotal += purchase.totalAmount;
+        }
 
-  return summary;
-},  
+        return acc;
+      },
+      {
+        totalAmount: 0,
+        ingredientTotal: 0,
+        operationalTotal: 0,
+        investmentTotal: 0,
+        count: 0,
+      },
+    );
+
+    return summary;
+  },  
 };

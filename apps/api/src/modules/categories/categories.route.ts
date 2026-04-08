@@ -1,13 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 
-import { env } from '../../config/env';
 import { categoriesController } from './categories.controller';
 
 export async function categoriesRoute(app: FastifyInstance) {
-  app.get(`${env.apiPrefix}/categories`, categoriesController.getAll);
-  app.get(`${env.apiPrefix}/categories/:id`, categoriesController.getById);
-  app.post(`${env.apiPrefix}/categories`, categoriesController.create);
-  app.patch(`${env.apiPrefix}/categories/:id`, categoriesController.update);
-  app.delete(`${env.apiPrefix}/categories/:id`, categoriesController.deactivate);
-  app.patch(`${env.apiPrefix}/categories/:id/reactivate`, categoriesController.reactivate);
+  app.get('/categories', categoriesController.getAll);
+  app.get('/categories/:id', categoriesController.getById);
+  app.post('/categories', categoriesController.create);
+  app.patch('/categories/:id', categoriesController.update);
+  app.delete('/categories/:id', categoriesController.deactivate);
+  app.patch('/categories/:id/reactivate', categoriesController.reactivate);
 }

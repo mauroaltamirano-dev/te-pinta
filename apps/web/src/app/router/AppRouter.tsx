@@ -15,6 +15,8 @@ import { IngredientsPage } from "../../pages/ingredients/ingredients-page";
 import { ProductionPage } from "../../pages/production/production-page";
 import { RecipesPage } from "../../pages/recipes/recipes-page";
 import { PurchasesPage } from "../../pages/purchases/purchases-page";
+import { WeeklyClosuresPage } from "../../pages/weekly-closures/weekly-closures-page";
+import { WeeklyReportPage } from "../../pages/weekly-closures/weekly-report-page";
 
 export function AppRouter() {
   return (
@@ -35,6 +37,14 @@ export function AppRouter() {
           <Route path={APP_ROUTES.production} element={<ProductionPage />} />
           <Route path={APP_ROUTES.recipes} element={<RecipesPage />} />
           <Route path={APP_ROUTES.purchases} element={<PurchasesPage />} />
+          <Route
+            path={APP_ROUTES.weeklyClosures}
+            element={<WeeklyClosuresPage />}
+          />
+          <Route
+            path={APP_ROUTES.weeklyReport}
+            element={<WeeklyReportPage />}
+          />
         </Route>
 
         <Route

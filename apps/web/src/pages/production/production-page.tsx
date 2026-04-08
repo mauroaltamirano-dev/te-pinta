@@ -2,22 +2,27 @@ import { IngredientsNeededTable } from "../../features/production/ingredients-ne
 
 export function ProductionPage() {
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <section className="rounded-3xl border border-sombra bg-arena px-6 py-6 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-cafe/70">
-          Operaciones
+    <div className="mx-auto max-w-7xl space-y-5 px-4 py-6 md:px-6">
+      {/* ── Header ─────────────────────────────────────────── */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted">
+            Operaciones
+          </p>
+          <h1 className="mt-1 text-2xl font-bold text-strong">Producción</h1>
+        </div>
+      </div>
+
+      <div className="max-w-2xl">
+        <p className="text-sm leading-6 text-soft">
+          Ingredientes necesarios para cumplir con los pedidos pendientes y confirmados. Usá esta vista para planificar compras y preparar la producción del día.
         </p>
+      </div>
 
-        <h1 className="mt-2 text-3xl font-bold text-bordo">Producción</h1>
-
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-cafe/85">
-          Ingredientes necesarios para cumplir con los pedidos pendientes y
-          confirmados. Usá esta vista para planificar compras y preparar la
-          producción del día.
-        </p>
-      </section>
-
-      <IngredientsNeededTable />
+      {/* ── Contenido ────────────────────────────────────────── */}
+      <div>
+        <IngredientsNeededTable />
+      </div>
     </div>
   );
 }

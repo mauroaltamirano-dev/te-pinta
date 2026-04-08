@@ -2,20 +2,22 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useMemo, useState, useEffect } from "react";
 import { Sidebar } from "../../components/layout/Sidebar";
 import { Topbar } from "../../components/layout/Topbar";
+import { APP_ROUTES } from "../../constants/routes";
 
 const pageTitles: Record<string, string> = {
-  "/": "Gestión operativa",
-  "/categories": "Categorías",
-  "/ingredients": "Ingredientes",
-  "/products": "Productos",
-  "/recipes": "Recetas",
-  "/orders": "Pedidos",
-  "/purchases": "Compras",
-  "/production": "Producción",
-  "/finance": "Finanzas",
-  "/ledger": "Ingresos",
-  "/clients": "Clientes",
-  "/settings": "Configuración",
+  [APP_ROUTES.dashboard]: "Gestión operativa",
+  [APP_ROUTES.categories]: "Categorías",
+  [APP_ROUTES.ingredients]: "Ingredientes",
+  [APP_ROUTES.products]: "Productos",
+  [APP_ROUTES.recipes]: "Recetas",
+  [APP_ROUTES.orders]: "Pedidos",
+  [APP_ROUTES.purchases]: "Compras",
+  [APP_ROUTES.production]: "Producción",
+  [APP_ROUTES.finance]: "Finanzas — Egresos",
+  [APP_ROUTES.ledger]: "Ingresos",
+  [APP_ROUTES.weeklyClosures]: "Caja Semanal",
+  [APP_ROUTES.clients]: "Clientes",
+  [APP_ROUTES.settings]: "Configuración",
 };
 
 export function AppLayout() {

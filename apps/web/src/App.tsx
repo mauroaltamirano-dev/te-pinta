@@ -13,6 +13,8 @@ import { PurchasesPage } from "./pages/purchases/purchases-page";
 import { RecipesPage } from "./pages/recipes/recipes-page";
 import { RevenuePage } from "./pages/renueve/revenue-page";
 import { DashboardPage } from "./pages/dashboard/dashboard-page";
+import { WeeklyClosuresPage } from "./pages/weekly-closures/weekly-closures-page";
+import { WeeklyReportPage } from "./pages/weekly-closures/weekly-report-page";
 
 function App() {
   return (
@@ -29,6 +31,11 @@ function App() {
         <Route path={APP_ROUTES.finance} element={<FinancePage />} />
         <Route path={APP_ROUTES.ledger} element={<RevenuePage />} />
         <Route path={APP_ROUTES.clients} element={<ClientsPage />} />
+        <Route
+          path={APP_ROUTES.weeklyClosures}
+          element={<WeeklyClosuresPage />}
+        />
+        <Route path={APP_ROUTES.weeklyReport} element={<WeeklyReportPage />} />
         <Route
           path={APP_ROUTES.settings}
           element={

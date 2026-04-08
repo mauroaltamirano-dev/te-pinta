@@ -15,9 +15,10 @@ type FormData = {
 type RecipeFormProps = {
   recipe?: Recipe | null;
   onCancelEdit?: () => void;
+  onSuccessCreate?: (productId: string) => void;
 };
 
-export function RecipeForm({ recipe, onCancelEdit }: RecipeFormProps) {
+export function RecipeForm({ recipe, onCancelEdit, onSuccessCreate }: RecipeFormProps) {
   const isEditing = !!recipe;
 
   const {
@@ -72,7 +73,12 @@ export function RecipeForm({ recipe, onCancelEdit }: RecipeFormProps) {
         notes: data.notes,
       },
       {
-        onSuccess: () => reset({ productId: "", yieldQuantity: 1, notes: "" }),
+        onSuccess: () => {
+          const selectedProductId = data.productId;
+          reset({ productId: "", yieldQuantity: 1, notes: "" });
+          onSuccessCreate?.(selectedProductId);
+          onCancelEdit?.();
+        },
       },
     );
   };
@@ -108,19 +114,10 @@ export function RecipeForm({ recipe, onCancelEdit }: RecipeFormProps) {
   const labelStyle = { color: "var(--foreground-soft)" };
 
   return (
-    <div
-      className="overflow-hidden rounded-2xl border transition-all"
-      style={{
-        background: "var(--surface)",
-        borderColor: isEditing ? "var(--warning)" : "var(--border)",
-        boxShadow: isEditing
-          ? "0 0 0 3px var(--warning-soft)"
-          : "var(--shadow-sm)",
-      }}
-    >
+    <div className="flex h-full flex-col text-sm transition-colors">
       {/* ── Header ──────────────────────────────────────────── */}
       <div
-        className="flex items-center justify-between border-b px-5 py-4"
+        className="shrink-0 flex items-center justify-between border-b px-5 py-4"
         style={{
           borderColor: isEditing ? "var(--warning)" : "var(--border-soft)",
           background: isEditing ? "var(--warning-soft)" : "var(--surface-2)",
@@ -162,7 +159,8 @@ export function RecipeForm({ recipe, onCancelEdit }: RecipeFormProps) {
       </div>
 
       {/* ── Campos ──────────────────────────────────────────── */}
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-5">
+      <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+        <div className="flex-1 overflow-y-auto space-y-4 p-5">
         {/* Producto — solo al crear */}
         {!isEditing && (
           <div className="space-y-1.5">
@@ -291,12 +289,20 @@ export function RecipeForm({ recipe, onCancelEdit }: RecipeFormProps) {
         )}
 
         {/* Acciones */}
-        <div className="flex gap-2 pt-1">
-          {isEditing && (
+        </div>
+        
+        <div
+          className="shrink-0 border-t p-5"
+          style={{
+            borderColor: "var(--border-soft)",
+            background: "var(--surface)",
+          }}
+        >
+          <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
             <button
               type="button"
               onClick={onCancelEdit}
-              className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition"
+              className="rounded-xl border px-5 py-2.5 text-sm font-semibold transition hover:opacity-80"
               style={{
                 borderColor: "var(--border)",
                 color: "var(--foreground-muted)",
@@ -305,24 +311,24 @@ export function RecipeForm({ recipe, onCancelEdit }: RecipeFormProps) {
             >
               Cancelar
             </button>
-          )}
-          <button
-            type="submit"
-            disabled={isPending}
-            className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
-            style={{
-              background: isEditing ? "var(--warning)" : "var(--primary)",
-              color: isEditing ? "#fff" : "var(--primary-foreground)",
-            }}
-          >
-            {isPending
-              ? isEditing
-                ? "Guardando..."
-                : "Creando..."
-              : isEditing
-                ? "Guardar cambios"
-                : "Crear receta"}
-          </button>
+            <button
+              type="submit"
+              disabled={isPending}
+              className="rounded-xl px-5 py-2.5 text-sm font-semibold transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              style={{
+                background: isEditing ? "var(--warning)" : "var(--primary)",
+                color: isEditing ? "#fff" : "var(--primary-foreground)",
+              }}
+            >
+              {isPending
+                ? isEditing
+                  ? "Guardando..."
+                  : "Creando..."
+                : isEditing
+                  ? "Guardar cambios"
+                  : "Crear receta"}
+            </button>
+          </div>
         </div>
       </form>
     </div>

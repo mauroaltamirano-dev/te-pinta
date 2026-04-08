@@ -38,6 +38,32 @@ export function createPurchase(data: {
   return apiClient.post<Purchase>("/purchases", data);
 }
 
+export function getPurchaseById(id: string) {
+  return apiClient.get<Purchase>(`/purchases/${id}`);
+}
+
+export function updatePurchase(
+  id: string,
+  data: Partial<{
+    date: string;
+    type: PurchaseType;
+    ingredientId?: string;
+    nameSnapshot: string;
+    quantity?: number;
+    unit?: PurchaseUnit;
+    unitPrice?: number;
+    totalAmount: number;
+    supplier?: string;
+    notes?: string;
+  }>,
+) {
+  return apiClient.patch<Purchase>(`/purchases/${id}`, data);
+}
+
+export function deletePurchase(id: string) {
+  return apiClient.delete(`/purchases/${id}`);
+}
+
 export type PurchasesSummary = {
   totalAmount: number;
   ingredientTotal: number;

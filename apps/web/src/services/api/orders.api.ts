@@ -3,7 +3,7 @@ import { apiClient } from "./client";
 export type OrderStatus =
   | "pending"
   | "confirmed"
-  | "preparing"
+  | "prepared"
   | "delivered"
   | "cancelled";
 
@@ -33,6 +33,8 @@ export type Order = {
   id: string;
   clientId: string | null;
   customerNameSnapshot: string | null;
+  customerPhoneSnapshot: string | null;
+  customerAddressSnapshot: string | null;
   status: OrderStatus;
   channel: OrderChannel;
   deliveryDate: string | null;
@@ -68,6 +70,8 @@ export function getOrderById(orderId: string) {
 export function createOrder(data: {
   clientId?: string;
   customerName?: string;
+  customerPhone?: string;
+  customerAddress?: string;
   channel: OrderChannel;
   deliveryDate?: string;
   paymentMethod?: PaymentMethod;
@@ -100,6 +104,8 @@ export function updateOrder(
   data: {
     clientId?: string | null;
     customerName?: string | null;
+    customerPhone?: string | null;
+    customerAddress?: string | null;
     channel?: OrderChannel;
     deliveryDate?: string | null;
     paymentMethod?: PaymentMethod;
@@ -125,4 +131,26 @@ export function reactivateOrder(orderId: string) {
 
 export function hardDeleteOrder(orderId: string) {
   return apiClient.delete<void>(`/orders/${orderId}/hard-delete`);
+}
+
+export type OperationalOrderVariety = {
+  productId: string;
+  productName: string;
+  units: number;
+  dozens: number;
+};
+
+export type OperationalOrdersSummary = {
+  date: string;
+  ordersCount: number;
+  totalUnits: number;
+  totalDozens: number;
+  varieties: OperationalOrderVariety[];
+};
+
+export function getOperationalOrdersSummary(date?: string) {
+  const query = date ? `?date=${date}` : "";
+  return apiClient.get<OperationalOrdersSummary>(
+    `/orders-operational-summary${query}`,
+  );
 }

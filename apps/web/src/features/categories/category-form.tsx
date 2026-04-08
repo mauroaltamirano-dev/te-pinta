@@ -54,26 +54,25 @@ export function CategoryForm({ category, onCancelEdit }: CategoryFormProps) {
 
   const onSubmit = (data: FormData) => {
     if (isEditing) {
-      updateMutation.mutate({ id: category.id, data });
+      updateMutation.mutate(
+        { id: category.id, data },
+        { onSuccess: () => onCancelEdit?.() },
+      );
     } else {
-      createMutation.mutate(data, { onSuccess: () => reset() });
+      createMutation.mutate(data, {
+        onSuccess: () => {
+          reset();
+          onCancelEdit?.();
+        },
+      });
     }
   };
 
   return (
-    <div
-      className="overflow-hidden rounded-2xl border transition-all"
-      style={{
-        background: "var(--surface)",
-        borderColor: isEditing ? "var(--warning)" : "var(--border)",
-        boxShadow: isEditing
-          ? "0 0 0 3px var(--warning-soft)"
-          : "var(--shadow-sm)",
-      }}
-    >
+    <div className="flex h-full flex-col text-sm transition-colors">
       {/* ── Header del form ─────────────────────────────────── */}
       <div
-        className="flex items-center justify-between border-b px-5 py-4"
+        className="shrink-0 flex items-center justify-between border-b px-5 py-4"
         style={{
           borderColor: isEditing ? "var(--warning)" : "var(--border-soft)",
           background: isEditing ? "var(--warning-soft)" : "var(--surface-2)",
@@ -114,7 +113,8 @@ export function CategoryForm({ category, onCancelEdit }: CategoryFormProps) {
       </div>
 
       {/* ── Campos ──────────────────────────────────────────── */}
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-5">
+      <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+        <div className="flex-1 overflow-y-auto space-y-4 p-5">
         {/* Nombre */}
         <div className="space-y-1.5">
           <label
@@ -220,13 +220,21 @@ export function CategoryForm({ category, onCancelEdit }: CategoryFormProps) {
           </div>
         )}
 
-        {/* Acciones */}
-        <div className="flex gap-2 pt-1">
-          {isEditing && (
+        </div>
+
+        {/* Footer */}
+        <div
+          className="shrink-0 border-t p-5"
+          style={{
+            borderColor: "var(--border-soft)",
+            background: "var(--surface)",
+          }}
+        >
+          <div className="flex gap-2">
             <button
               type="button"
               onClick={onCancelEdit}
-              className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition"
+              className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition hover:opacity-80"
               style={{
                 borderColor: "var(--border)",
                 color: "var(--foreground-muted)",
@@ -235,24 +243,24 @@ export function CategoryForm({ category, onCancelEdit }: CategoryFormProps) {
             >
               Cancelar
             </button>
-          )}
-          <button
-            type="submit"
-            disabled={isPending}
-            className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
-            style={{
-              background: isEditing ? "var(--warning)" : "var(--primary)",
-              color: isEditing ? "#fff" : "var(--primary-foreground)",
-            }}
-          >
-            {isPending
-              ? isEditing
-                ? "Guardando..."
-                : "Creando..."
-              : isEditing
-                ? "Guardar cambios"
-                : "Crear categoría"}
-          </button>
+            <button
+              type="submit"
+              disabled={isPending}
+              className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              style={{
+                background: isEditing ? "var(--warning)" : "var(--primary)",
+                color: isEditing ? "#fff" : "var(--primary-foreground)",
+              }}
+            >
+              {isPending
+                ? isEditing
+                  ? "Guardando..."
+                  : "Creando..."
+                : isEditing
+                  ? "Guardar cambios"
+                  : "Crear categoría"}
+            </button>
+          </div>
         </div>
       </form>
     </div>

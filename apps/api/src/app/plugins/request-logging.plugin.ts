@@ -12,33 +12,24 @@ declare module "fastify" {
 export const requestLoggingPlugin: FastifyPluginAsync = fp(async (app) => {
   app.addHook("onRequest", async (request) => {
     request[REQUEST_START_TIME] = Date.now();
-
-    request.log.debug(
-      {
-        req: request,
-      },
-      "request.received",
-    );
   });
 
   app.addHook("onResponse", async (request, reply) => {
+    if (reply.statusCode < 400) return;
+
     const startedAt = request[REQUEST_START_TIME];
     const durationMs = startedAt ? Date.now() - startedAt : undefined;
 
-    const level =
-      reply.statusCode >= 500
-        ? "error"
-        : reply.statusCode >= 400
-          ? "warn"
-          : "info";
+    const level = reply.statusCode >= 500 ? "error" : "warn";
 
     request.log[level](
       {
-        req: request,
-        res: reply,
+        method: request.method,
+        route: request.routeOptions?.url ?? request.url,
+        statusCode: reply.statusCode,
         durationMs,
       },
-      "request.completed",
+      "request.failed",
     );
   });
 });

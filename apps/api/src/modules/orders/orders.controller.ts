@@ -9,6 +9,11 @@ import {
   updateOrderStatusSchema,
 } from "./orders.schema";
 import { ordersService } from "./orders.service";
+import { z } from "zod";
+
+const operationalSummaryQuerySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD").optional(),
+});
 
 export const ordersController = {
   async getAllOrders(_request: FastifyRequest, reply: FastifyReply) {
@@ -17,6 +22,16 @@ export const ordersController = {
     return reply.send(ordersMapper.toOrderListResponse(orders));
   },
 
+async getOperationalSummary(
+  request: FastifyRequest<{ Querystring: { date?: string } }>,
+  reply: FastifyReply,
+) {
+  const { date } = operationalSummaryQuerySchema.parse(request.query);
+
+  const summary = await ordersService.getOperationalSummary(date);
+
+  return reply.send(ordersMapper.toOperationalSummaryResponse(summary));
+},
   async getOrderById(
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,

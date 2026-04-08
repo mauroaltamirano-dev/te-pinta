@@ -41,3 +41,32 @@ export type SalesDashboardResponse = {
   topProducts: TopProductItem[];
   recentSales: RecentSaleItem[];
 };
+
+// ── Operational dashboard ─────────────────────────────────────────────────────
+
+export type OperationalVariety = {
+  productId: string;
+  productName: string;
+  units: number;
+  dozens: number;
+};
+
+export type OperationalOrderSummary = {
+  id: string;
+  customerName: string | null;
+  status: 'confirmed' | 'prepared';
+  channel: string;
+  deliveryDate: string | null;
+  totalAmount: number;
+  totalUnits: number;
+};
+
+export type OperationalDashboardResponse = {
+  confirmedCount: number;
+  preparedCount: number;
+  totalActiveOrders: number;
+  totalUnits: number;
+  totalDozens: number;
+  varieties: OperationalVariety[];
+  activeOrders: OperationalOrderSummary[];
+};

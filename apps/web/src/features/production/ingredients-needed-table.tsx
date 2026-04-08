@@ -6,23 +6,32 @@ export function IngredientsNeededTable() {
 
   if (isLoading) {
     return (
-      <div className="rounded-3xl border border-sombra bg-crema p-6 shadow-sm">
-        <p className="text-sm text-cafe/70">Cargando datos de producción...</p>
+      <div 
+        className="rounded-2xl border p-6 shadow-sm"
+        style={{ background: "var(--surface)", borderColor: "var(--border-soft)" }}
+      >
+        <p className="text-sm" style={{ color: "var(--foreground-muted)" }}>
+          Cargando datos de producción...
+        </p>
       </div>
     );
   }
 
   if (isError) {
     return (
-      <div className="rounded-3xl border border-red-200 bg-red-50 p-6 shadow-sm">
-        <p className="text-sm text-red-700">
+      <div 
+        className="rounded-2xl border p-6 shadow-sm"
+        style={{ background: "var(--danger-soft)", borderColor: "var(--danger)" }}
+      >
+        <p className="text-sm font-medium" style={{ color: "var(--danger-text)" }}>
           {error instanceof Error
             ? error.message
             : "No se pudieron cargar los datos de producción"}
         </p>
         <button
           onClick={() => refetch()}
-          className="mt-4 rounded-2xl bg-bordo px-4 py-2 text-sm font-semibold text-crema transition hover:bg-cafe"
+          className="mt-4 rounded-xl px-4 py-2 text-sm font-semibold transition hover:opacity-90"
+          style={{ background: "var(--danger)", color: "#fff" }}
         >
           Reintentar
         </button>
@@ -31,47 +40,66 @@ export function IngredientsNeededTable() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 animate-fade-in">
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-sombra bg-crema p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-cafe/60">
+        {/* Stat: Pedidos */}
+        <div 
+          className="rounded-2xl border p-5 shadow-sm"
+          style={{ background: "var(--surface)", borderColor: "var(--border-soft)" }}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--foreground-muted)" }}>
             Pedidos considerados
           </p>
-          <p className="mt-2 text-3xl font-bold text-bordo">
+          <p className="mt-1.5 text-3xl font-bold" style={{ color: "var(--foreground)" }}>
             {data?.ordersConsidered ?? 0}
           </p>
-          <p className="mt-1 text-xs text-cafe/50">
+          <p className="mt-1 text-xs" style={{ color: "var(--foreground-faint)" }}>
             Pedidos pendientes y confirmados incluidos en el cálculo
           </p>
         </div>
 
-        <div className="rounded-2xl border border-sombra bg-crema p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-cafe/60">
+        {/* Stat: Productos */}
+        <div 
+          className="rounded-2xl border p-5 shadow-sm"
+          style={{ background: "var(--surface)", borderColor: "var(--border-soft)" }}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--foreground-muted)" }}>
             Productos calculados
           </p>
-          <p className="mt-2 text-3xl font-bold text-bordo">
+          <p className="mt-1.5 text-3xl font-bold" style={{ color: "var(--foreground)" }}>
             {data?.productsCalculated ?? 0}
           </p>
-          <p className="mt-1 text-xs text-cafe/50">
+          <p className="mt-1 text-xs" style={{ color: "var(--foreground-faint)" }}>
             Productos distintos con receta activa procesados
           </p>
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-3xl border border-sombra bg-crema shadow-sm">
-        <div className="flex items-center justify-between border-b border-sombra px-5 py-4">
+      <div 
+        className="overflow-hidden rounded-2xl border shadow-sm"
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+      >
+        <div 
+          className="flex items-center justify-between border-b px-5 py-4"
+          style={{ borderColor: "var(--border-soft)", background: "var(--surface-2)" }}
+        >
           <div>
-            <h2 className="text-lg font-bold text-bordo">
+            <h2 className="text-base font-bold" style={{ color: "var(--foreground)" }}>
               Ingredientes necesarios
             </h2>
-            <p className="mt-1 text-sm text-cafe/75">
+            <p className="mt-0.5 text-sm" style={{ color: "var(--foreground-soft)" }}>
               Insumos requeridos para cumplir con los pedidos activos.
             </p>
           </div>
 
           <button
             onClick={() => refetch()}
-            className="rounded-2xl border border-sombra bg-arena px-4 py-2 text-sm font-semibold text-cafe transition hover:bg-sombra/60 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl border px-4 py-2 text-sm font-semibold transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ 
+              background: "transparent", 
+              borderColor: "var(--border)", 
+              color: "var(--foreground-muted)"
+            }}
             disabled={isFetching}
           >
             {isFetching ? "Actualizando..." : "Actualizar"}
@@ -79,16 +107,25 @@ export function IngredientsNeededTable() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead className="bg-arena/70">
-              <tr>
-                <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr style={{ background: "var(--surface-2)" }}>
+                <th 
+                  className="border-b px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider"
+                  style={{ borderColor: "var(--border-soft)", color: "var(--foreground-muted)" }}
+                >
                   Ingrediente
                 </th>
-                <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
+                <th 
+                  className="border-b px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider"
+                  style={{ borderColor: "var(--border-soft)", color: "var(--foreground-muted)" }}
+                >
                   Unidad base
                 </th>
-                <th className="border-b border-sombra px-5 py-4 text-left text-sm font-semibold text-cafe">
+                <th 
+                  className="border-b px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider"
+                  style={{ borderColor: "var(--border-soft)", color: "var(--foreground-muted)" }}
+                >
                   Cantidad requerida
                 </th>
               </tr>
@@ -98,15 +135,30 @@ export function IngredientsNeededTable() {
               {data?.items.map((item) => (
                 <tr
                   key={item.ingredientId}
-                  className="transition hover:bg-arena/30"
+                  className="transition"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--surface-hover)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
                 >
-                  <td className="border-b border-sombra px-5 py-4 text-sm font-medium text-bordo">
+                  <td 
+                    className="border-b px-5 py-4 font-medium"
+                    style={{ borderColor: "var(--border-soft)", color: "var(--foreground)" }}
+                  >
                     {item.ingredientName}
                   </td>
-                  <td className="border-b border-sombra px-5 py-4 text-sm text-cafe">
+                  <td 
+                    className="border-b px-5 py-4"
+                    style={{ borderColor: "var(--border-soft)", color: "var(--foreground-soft)" }}
+                  >
                     {item.ingredientBaseUnit}
                   </td>
-                  <td className="border-b border-sombra px-5 py-4 text-sm font-semibold text-cafe">
+                  <td 
+                    className="border-b px-5 py-4 font-semibold"
+                    style={{ borderColor: "var(--border-soft)", color: "var(--foreground)" }}
+                  >
                     {item.requiredQuantityInBaseUnit}
                   </td>
                 </tr>
@@ -116,16 +168,17 @@ export function IngredientsNeededTable() {
                 <tr>
                   <td
                     colSpan={3}
-                    className="px-5 py-10 text-center text-sm text-cafe/65"
+                    className="px-5 py-10 text-center"
+                    style={{ color: "var(--foreground-muted)" }}
                   >
-                    No hay ingredientes requeridos en este momento.
+                    No hay ingredientes requeridos para los pedidos activos.
                   </td>
                 </tr>
               ) : null}
             </tbody>
           </table>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

@@ -44,8 +44,43 @@ export type SalesDashboardResponse = {
   recentSales: RecentSaleItem[];
 };
 
+// ── Operational ───────────────────────────────────────────────────────────────
+
+export type OperationalVariety = {
+  productId: string;
+  productName: string;
+  units: number;
+  dozens: number;
+};
+
+export type OperationalOrderSummary = {
+  id: string;
+  customerName: string | null;
+  status: "confirmed" | "prepared";
+  channel: string;
+  deliveryDate: string | null;
+  totalAmount: number;
+  totalUnits: number;
+};
+
+export type OperationalDashboardResponse = {
+  confirmedCount: number;
+  preparedCount: number;
+  totalActiveOrders: number;
+  totalUnits: number;
+  totalDozens: number;
+  varieties: OperationalVariety[];
+  activeOrders: OperationalOrderSummary[];
+};
+
+// ── API calls ─────────────────────────────────────────────────────────────────
+
 export function getSalesDashboard(range: DashboardRange = "7d") {
   return apiClient.get<SalesDashboardResponse>("/dashboard/sales", {
     params: { range },
   });
+}
+
+export function getOperationalDashboard() {
+  return apiClient.get<OperationalDashboardResponse>("/dashboard/operational");
 }

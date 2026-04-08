@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { MdClose, MdAdd, MdRemove } from "react-icons/md";
 
 import type { Order } from "../../services/api/orders.api";
@@ -22,10 +22,7 @@ const CHANNEL_OPTIONS: { value: OrderChannel; label: string }[] = [
   { value: "other", label: "Otro" },
 ];
 
-const PAYMENT_METHOD_OPTIONS: { value: PaymentMethod; label: string }[] = [
-  { value: "cash", label: "Efectivo" },
-  { value: "transfer", label: "Transferencia" },
-];
+
 
 const EMPTY_ITEM: OrderFormItem = { productId: "", quantity: 1 };
 
@@ -93,7 +90,10 @@ export function OrderForm({
   const focusOff = makeFocusOff();
 
   const [clientId, setClientId] = useState("");
+  const [clientMode, setClientMode] = useState<"existing" | "manual">("existing");
   const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
   const [channel, setChannel] = useState<OrderChannel>("whatsapp");
   const [deliveryDate, setDeliveryDate] = useState("");
   const [hasDeliveryTime, setHasDeliveryTime] = useState(false);
@@ -105,10 +105,14 @@ export function OrderForm({
   const [items, setItems] = useState<OrderFormItem[]>([{ ...EMPTY_ITEM }]);
 
   const [loadedOrderId, setLoadedOrderId] = useState<string | null>(null);
+  const [prevOrderId, setPrevOrderId] = useState<string | undefined>(order?.id);
 
   const resetForm = () => {
     setClientId("");
+    setClientMode("existing");
     setCustomerName("");
+    setCustomerPhone("");
+    setCustomerAddress("");
     setChannel("whatsapp");
     setDeliveryDate("");
     setHasDeliveryTime(false);
@@ -120,49 +124,55 @@ export function OrderForm({
     setItems([{ ...EMPTY_ITEM }]);
   };
 
-  useEffect(() => {
+  if (order?.id !== prevOrderId) {
+    setPrevOrderId(order?.id);
     if (!order) {
       setLoadedOrderId(null);
       resetForm();
     }
-  }, [order]);
+  }
 
-  useEffect(() => {
-    if (
-      order &&
-      detailQuery.data &&
-      detailQuery.data.id === order.id &&
-      loadedOrderId !== order.id
-    ) {
-      setLoadedOrderId(order.id);
-      setClientId(detailQuery.data.clientId ?? "");
-      setCustomerName(detailQuery.data.customerNameSnapshot ?? "");
-      setChannel(detailQuery.data.channel);
-      const raw = detailQuery.data.deliveryDate;
-      if (raw) {
-        const d = new Date(raw);
-        setDeliveryDate(d.toISOString().slice(0, 10));
-        const timeStr = d.toTimeString().slice(0, 5);
-        const hasTime = timeStr !== "00:00";
-        setHasDeliveryTime(hasTime);
-        setDeliveryTime(hasTime ? timeStr : "");
-      } else {
-        setDeliveryDate("");
-        setHasDeliveryTime(false);
-        setDeliveryTime("");
-      }
-      setPaymentMethod(detailQuery.data.paymentMethod);
-      setIsPaid(detailQuery.data.isPaid);
-      setNotes(detailQuery.data.notes ?? "");
-      setDiscountAmount(detailQuery.data.discountAmount ?? 0);
-      setItems(
-        detailQuery.data.items.map((i) => ({
-          productId: i.productId,
-          quantity: i.quantity,
-        })),
-      );
+  if (
+    order &&
+    detailQuery.data &&
+    detailQuery.data.id === order.id &&
+    loadedOrderId !== order.id
+  ) {
+    setLoadedOrderId(order.id);
+    const resolvedClientId = detailQuery.data.clientId ?? "";
+    setClientId(resolvedClientId);
+    setClientMode(resolvedClientId ? "existing" : "manual");
+    setCustomerName(detailQuery.data.customerNameSnapshot ?? "");
+    setCustomerPhone(detailQuery.data.customerPhoneSnapshot ?? "");
+    setCustomerAddress(detailQuery.data.customerAddressSnapshot ?? "");
+    setChannel(detailQuery.data.channel);
+    const raw = detailQuery.data.deliveryDate;
+    if (raw) {
+      const d = new Date(raw);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      setDeliveryDate(`${year}-${month}-${day}`);
+      const timeStr = d.toTimeString().slice(0, 5);
+      const hasTime = timeStr !== "00:00";
+      setHasDeliveryTime(hasTime);
+      setDeliveryTime(hasTime ? timeStr : "");
+    } else {
+      setDeliveryDate("");
+      setHasDeliveryTime(false);
+      setDeliveryTime("");
     }
-  }, [detailQuery.data, loadedOrderId, order]);
+    setPaymentMethod(detailQuery.data.paymentMethod);
+    setIsPaid(detailQuery.data.isPaid);
+    setNotes(detailQuery.data.notes ?? "");
+    setDiscountAmount(detailQuery.data.discountAmount ?? 0);
+    setItems(
+      detailQuery.data.items.map((i) => ({
+        productId: i.productId,
+        quantity: i.quantity,
+      })),
+    );
+  }
 
   const updateItem = (index: number, next: Partial<OrderFormItem>) =>
     setItems((prev) =>
@@ -190,8 +200,10 @@ export function OrderForm({
     };
 
     const payload = {
-      clientId: clientId || undefined,
-      customerName: customerName.trim() || undefined,
+      clientId: clientMode === "existing" && clientId ? clientId : undefined,
+      customerName: customerName.trim() ? customerName.trim() : undefined,
+      customerPhone: customerPhone.trim() ? customerPhone.trim() : undefined,
+      customerAddress: customerAddress.trim() ? customerAddress.trim() : undefined,
       channel,
       deliveryDate: buildDeliveryISO(),
       paymentMethod,
@@ -210,8 +222,10 @@ export function OrderForm({
           orderId: order.id,
           data: {
             ...payload,
-            clientId: clientId || null,
-            customerName: customerName.trim() || null,
+            clientId: clientMode === "existing" && clientId ? clientId : null,
+            customerName: customerName.trim() ? customerName.trim() : null,
+            customerPhone: customerPhone.trim() ? customerPhone.trim() : null,
+            customerAddress: customerAddress.trim() ? customerAddress.trim() : null,
             deliveryDate: buildDeliveryISO() ?? null,
           },
         },
@@ -230,18 +244,9 @@ export function OrderForm({
   const labelStyle = { color: "var(--foreground-soft)" };
 
   return (
-    <div
-      className="overflow-hidden rounded-3xl border"
-      style={{
-        background: "var(--surface)",
-        borderColor: isEditing ? "var(--warning)" : "var(--border)",
-        boxShadow: isEditing
-          ? "0 0 0 3px var(--warning-soft)"
-          : "var(--shadow-lg)",
-      }}
-    >
+    <div className="flex h-full flex-col text-sm">
       <div
-        className="flex items-start justify-between gap-4 border-b px-5 py-4 md:px-6"
+        className="shrink-0 flex items-start justify-between gap-4 border-b px-5 py-4 md:px-6"
         style={{
           borderColor: isEditing ? "var(--warning)" : "var(--border-soft)",
           background: isEditing ? "var(--warning-soft)" : "var(--surface-2)",
@@ -289,69 +294,159 @@ export function OrderForm({
         </button>
       </div>
 
-      <form onSubmit={onSubmit} className="space-y-6 p-5 md:p-6">
+      <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+        <div className="flex-1 overflow-y-auto p-5 md:p-6 space-y-8">
         <section className="space-y-4">
+          <div className="rounded-xl border p-5 space-y-5" style={{ borderColor: 'var(--border-soft)', background: 'var(--surface-2)' }}>
+            <div>
+              <h3 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Cliente</h3>
+              <p className="mt-1 text-xs" style={{ color: "var(--foreground-muted)" }}>
+                Seleccioná un cliente o ingresá uno nuevo.
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-1 rounded-xl p-1 border" style={{ background: "var(--background)", borderColor: "var(--border)" }}>
+              <button
+                type="button"
+                onClick={() => setClientMode("existing")}
+                className="rounded-lg py-2 text-sm font-semibold transition"
+                style={{
+                  background: clientMode === "existing" ? "var(--surface)" : "transparent",
+                  color: clientMode === "existing" ? "var(--foreground)" : "var(--foreground-muted)",
+                  boxShadow: clientMode === "existing" ? "var(--shadow-app-sm)" : "none",
+                }}
+              >
+                Cliente Existente
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                   setClientMode("manual");
+                   setClientId("");
+                }}
+                className="rounded-lg py-2 text-sm font-semibold transition"
+                style={{
+                  background: clientMode === "manual" ? "var(--surface)" : "transparent",
+                  color: clientMode === "manual" ? "var(--foreground)" : "var(--foreground-muted)",
+                  boxShadow: clientMode === "manual" ? "var(--shadow-app-sm)" : "none",
+                }}
+              >
+                Nuevo / Manual
+              </button>
+            </div>
+
+            {clientMode === "existing" ? (
+              <div className="space-y-3">
+                <p className="text-xs p-3 rounded-lg border font-medium" style={{ color: "var(--info-text)", background: "var(--info-soft)", borderColor: "var(--info)" }}>
+                  Seleccioná un cliente ya registrado para autocompletar sus datos.
+                </p>
+                <select
+                  id="ord-client"
+                  value={clientId}
+                  onChange={(e) => {
+                     const id = e.target.value;
+                     setClientId(id);
+                     if (id) {
+                       const c = clients?.find(x => x.id === id);
+                       if (c) {
+                         setCustomerName(c.name);
+                         setCustomerPhone(c.phone || "");
+                         setCustomerAddress(c.address || "");
+                       }
+                     } else {
+                       setCustomerName("");
+                       setCustomerPhone("");
+                       setCustomerAddress("");
+                     }
+                  }}
+                  className={fieldBase}
+                  style={fieldStyle(isEditing)}
+                  onFocus={focusOn}
+                  onBlur={focusOff}
+                >
+                  <option value="">Seleccionar cliente...</option>
+                  {clients?.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.phone ? `— ${c.phone}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs p-3 rounded-lg border font-medium" style={{ color: "var(--info-text)", background: "var(--info-soft)", borderColor: "var(--info)" }}>
+                  Si completás estos datos y el cliente no existe, se registrará automáticamente al guardar el pedido.
+                </p>
+              </div>
+            )}
+
+            <div className={`grid gap-4 ${clientMode === "existing" && !clientId ? "opacity-50 pointer-events-none" : ""}`}>
+              <div className="space-y-1.5">
+                <label htmlFor="ord-customer-name" className="block text-sm font-medium" style={labelStyle}>
+                  Nombre del cliente
+                </label>
+                <input
+                  id="ord-customer-name"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Ej: Consumidor Final"
+                  className={fieldBase}
+                  style={fieldStyle(isEditing)}
+                  onFocus={focusOn}
+                  onBlur={focusOff}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="ord-customer-phone" className="block text-sm font-medium" style={labelStyle}>
+                    Teléfono
+                  </label>
+                  <input
+                    id="ord-customer-phone"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    placeholder="Ej: +54 9 11..."
+                    className={fieldBase}
+                    style={fieldStyle(isEditing)}
+                    onFocus={focusOn}
+                    onBlur={focusOff}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="ord-customer-address" className="block text-sm font-medium" style={labelStyle}>
+                    Dirección
+                  </label>
+                  <input
+                    id="ord-customer-address"
+                    value={customerAddress}
+                    onChange={(e) => setCustomerAddress(e.target.value)}
+                    placeholder="Ej: Calle falsa 123"
+                    className={fieldBase}
+                    style={fieldStyle(isEditing)}
+                    onFocus={focusOn}
+                    onBlur={focusOff}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div>
             <h3
-              className="text-sm font-semibold"
+              className="text-sm font-semibold mt-6"
               style={{ color: "var(--foreground)" }}
             >
-              Datos generales
+              Detalles del pedido
             </h3>
             <p
               className="mt-1 text-xs"
               style={{ color: "var(--foreground-muted)" }}
             >
-              Cliente, canal, entrega y pago.
+              Canal, entrega y pago.
             </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="ord-client"
-                className="block text-sm font-medium"
-                style={labelStyle}
-              >
-                Cliente existente
-              </label>
-              <select
-                id="ord-client"
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-                className={fieldBase}
-                style={fieldStyle(isEditing)}
-                onFocus={focusOn}
-                onBlur={focusOff}
-              >
-                <option value="">Sin cliente asociado</option>
-                {clients?.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} — {c.phone}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label
-                htmlFor="ord-customer-name"
-                className="block text-sm font-medium"
-                style={labelStyle}
-              >
-                Nombre del cliente
-              </label>
-              <input
-                id="ord-customer-name"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Ej: Mauro / Cliente mostrador"
-                className={fieldBase}
-                style={fieldStyle(isEditing)}
-                onFocus={focusOn}
-                onBlur={focusOff}
-              />
-            </div>
 
             <div className="space-y-1.5">
               <label
@@ -426,30 +521,42 @@ export function OrderForm({
             </div>
 
             <div className="space-y-1.5">
-              <label
-                htmlFor="ord-payment-method"
-                className="block text-sm font-medium"
-                style={labelStyle}
-              >
+              <label className="block text-sm font-medium" style={labelStyle}>
                 Método de pago
               </label>
-              <select
-                id="ord-payment-method"
-                value={paymentMethod}
-                onChange={(e) =>
-                  setPaymentMethod(e.target.value as PaymentMethod)
-                }
-                className={fieldBase}
-                style={fieldStyle(isEditing)}
-                onFocus={focusOn}
-                onBlur={focusOff}
+
+              <div 
+                className="grid grid-cols-2 gap-1 rounded-xl p-1 border"
+                style={{ 
+                  background: "var(--background)", 
+                  borderColor: "var(--border)" 
+                }}
               >
-                {PAYMENT_METHOD_OPTIONS.map(({ value, label }) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("cash")}
+                  className="rounded-lg py-2 text-sm font-semibold transition"
+                  style={{
+                    background: paymentMethod === "cash" ? "var(--surface)" : "transparent",
+                    color: paymentMethod === "cash" ? "var(--foreground)" : "var(--foreground-muted)",
+                    boxShadow: paymentMethod === "cash" ? "var(--shadow-app-sm)" : "none",
+                  }}
+                >
+                  Efectivo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("transfer")}
+                  className="rounded-lg py-2 text-sm font-semibold transition"
+                  style={{
+                    background: paymentMethod === "transfer" ? "var(--surface)" : "transparent",
+                    color: paymentMethod === "transfer" ? "var(--foreground)" : "var(--foreground-muted)",
+                    boxShadow: paymentMethod === "transfer" ? "var(--shadow-app-sm)" : "none",
+                  }}
+                >
+                  Transferencia
+                </button>
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -457,30 +564,38 @@ export function OrderForm({
                 Estado de pago
               </label>
 
-              <label
-                className="flex min-h-[46px] items-center gap-3 rounded-xl border px-4"
-                style={{
-                  background: "var(--background)",
-                  borderColor: isPaid ? "var(--success)" : "var(--border)",
+              <div 
+                className="grid grid-cols-2 gap-1 rounded-xl p-1 border"
+                style={{ 
+                  background: "var(--background)", 
+                  borderColor: "var(--border)" 
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={isPaid}
-                  onChange={(e) => setIsPaid(e.target.checked)}
-                  className="h-4 w-4"
-                />
-                <span
-                  className="text-sm font-medium"
+                <button
+                  type="button"
+                  onClick={() => setIsPaid(true)}
+                  className="rounded-lg py-2 text-sm font-semibold transition"
                   style={{
-                    color: isPaid
-                      ? "var(--success-text)"
-                      : "var(--foreground-soft)",
+                    background: isPaid ? "var(--success)" : "transparent",
+                    color: isPaid ? "#fff" : "var(--foreground-muted)",
+                    boxShadow: isPaid ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
                   }}
                 >
-                  {isPaid ? "Pagado" : "Pendiente de pago"}
-                </span>
-              </label>
+                  Pagado
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPaid(false)}
+                  className="rounded-lg py-2 text-sm font-semibold transition"
+                  style={{
+                    background: !isPaid ? "var(--surface)" : "transparent",
+                    color: !isPaid ? "var(--foreground)" : "var(--foreground-muted)",
+                    boxShadow: !isPaid ? "var(--shadow-app-sm)" : "none",
+                  }}
+                >
+                  Pendiente
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -675,8 +790,6 @@ export function OrderForm({
           </div>
         </section>
 
-
-
         {isError && (
           <div
             className="rounded-xl border px-4 py-3 text-sm animate-fade-in"
@@ -704,38 +817,48 @@ export function OrderForm({
             Pedido registrado correctamente.
           </div>
         )}
+        </div>
 
-        <div className="flex flex-col-reverse gap-2 border-t pt-4 md:flex-row md:justify-end">
-          <button
-            type="button"
-            onClick={onCancelEdit}
-            className="rounded-xl border px-4 py-2.5 text-sm font-semibold transition"
-            style={{
-              borderColor: "var(--border)",
-              color: "var(--foreground-soft)",
-              background: "transparent",
-            }}
-          >
-            Cancelar
-          </button>
+        {/* Footer */}
+        <div
+          className="shrink-0 border-t p-5 md:px-6"
+          style={{
+            borderColor: "var(--border-soft)",
+            background: "var(--surface)",
+          }}
+        >
+          <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="rounded-xl border px-5 py-2.5 text-sm font-semibold transition hover:opacity-80"
+              style={{
+                borderColor: "var(--border)",
+                color: "var(--foreground-soft)",
+                background: "transparent",
+              }}
+            >
+              Cancelar
+            </button>
 
-          <button
-            type="submit"
-            disabled={isPending || cleanItems.length === 0}
-            className="rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
-            style={{
-              background: isEditing ? "var(--warning)" : "var(--primary)",
-              color: isEditing ? "#fff" : "var(--primary-foreground)",
-            }}
-          >
-            {isPending
-              ? isEditing
-                ? "Guardando..."
-                : "Registrando..."
-              : isEditing
-                ? "Guardar cambios"
-                : "Registrar pedido"}
-          </button>
+            <button
+              type="submit"
+              disabled={isPending || cleanItems.length === 0}
+              className="rounded-xl px-5 py-2.5 text-sm font-semibold transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              style={{
+                background: isEditing ? "var(--warning)" : "var(--primary)",
+                color: isEditing ? "#fff" : "var(--primary-foreground)",
+              }}
+            >
+              {isPending
+                ? isEditing
+                  ? "Guardando..."
+                  : "Registrando..."
+                : isEditing
+                  ? "Guardar cambios"
+                  : "Registrar pedido"}
+            </button>
+          </div>
         </div>
       </form>
     </div>

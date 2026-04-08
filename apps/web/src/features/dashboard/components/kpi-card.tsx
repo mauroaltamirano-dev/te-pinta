@@ -2,35 +2,38 @@ type KpiCardProps = {
   title: string;
   value: string;
   helper?: string;
-  /** Ícono emoji o cualquier ReactNode para decoración */
   icon?: React.ReactNode;
-  /** Variante semántica para el acento de color */
   accent?: "default" | "success" | "warning" | "danger" | "info";
 };
 
 const ACCENT_STYLES: Record<
   NonNullable<KpiCardProps["accent"]>,
-  { dot: string; value: string }
+  { border: string; value: string; iconBg: string }
 > = {
   default: {
-    dot: "var(--primary)",
+    border: "var(--primary)",
     value: "var(--foreground)",
+    iconBg: "rgba(192, 122, 82, 0.12)",
   },
   success: {
-    dot: "var(--success)",
+    border: "var(--success)",
     value: "var(--success-text)",
+    iconBg: "var(--success-soft)",
   },
   warning: {
-    dot: "var(--warning)",
+    border: "var(--warning)",
     value: "var(--warning-text)",
+    iconBg: "var(--warning-soft)",
   },
   danger: {
-    dot: "var(--danger)",
+    border: "var(--danger)",
     value: "var(--danger-text)",
+    iconBg: "var(--danger-soft)",
   },
   info: {
-    dot: "var(--info)",
+    border: "var(--info)",
     value: "var(--info-text)",
+    iconBg: "var(--info-soft)",
   },
 };
 
@@ -45,49 +48,49 @@ export function KpiCard({
 
   return (
     <div
-      className="rounded-2xl border p-5 transition"
+      className="rounded-2xl p-5 transition"
       style={{
         background: "var(--surface)",
-        borderColor: "var(--border)",
+        border: "1px solid var(--border)",
+        borderLeft: `3px solid ${styles.border}`,
         boxShadow: "var(--shadow-sm)",
       }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-3">
         <p
-          className="text-xs font-semibold uppercase tracking-wider"
+          className="text-xs font-semibold uppercase tracking-wider leading-snug"
           style={{ color: "var(--foreground-muted)" }}
         >
           {title}
         </p>
         {icon && (
-          <span className="text-base leading-none opacity-60">{icon}</span>
+          <span
+            className="flex-shrink-0 text-sm leading-none rounded-lg p-1.5"
+            style={{ background: styles.iconBg }}
+          >
+            {icon}
+          </span>
         )}
       </div>
 
       {/* Valor principal */}
       <p
-        className="mt-3 text-2xl font-bold tabular-nums leading-none"
+        className="mt-3 text-3xl font-bold tabular-nums leading-none"
         style={{ color: styles.value }}
       >
         {value}
       </p>
 
-      {/* Helper / subtexto */}
+      {/* Helper */}
       {helper && (
         <p
-          className="mt-1.5 text-xs"
+          className="mt-2 text-xs leading-relaxed"
           style={{ color: "var(--foreground-muted)" }}
         >
           {helper}
         </p>
       )}
-
-      {/* Barra de acento inferior */}
-      <div
-        className="mt-4 h-0.5 w-8 rounded-full"
-        style={{ background: styles.dot }}
-      />
     </div>
   );
 }
