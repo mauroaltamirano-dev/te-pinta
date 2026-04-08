@@ -3,7 +3,9 @@
   "buildCommand": "pnpm --filter api build",
   "outputDirectory": "apps/api/dist",
   "functions": {
-    "apps/api/api/index.ts": {}
+    "apps/api/api/index.ts": {
+      "includeFiles": "apps/api/src/**"
+    }
   },
   "rewrites": [
     { "source": "/(.*)", "destination": "/apps/api/api/index.ts" }
