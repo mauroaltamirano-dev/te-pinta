@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "buildCommand": "pnpm build",
   "installCommand": "pnpm install --no-frozen-lockfile",
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index.ts" }
