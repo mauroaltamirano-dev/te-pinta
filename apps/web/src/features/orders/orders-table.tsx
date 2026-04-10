@@ -70,9 +70,23 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   transfer: "Transferencia",
 };
 
-function formatDateTime(value: string | null) {
-  if (!value) return "Sin definir";
-  return new Date(value).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" });
+const SHIFT_LABELS: Record<string, string> = {
+  mediodia: "Mediodía",
+  tarde: "Tarde",
+  noche: "Noche",
+};
+
+const SHIFT_STYLE: Record<string, React.CSSProperties> = {
+  mediodia: { background: "var(--warning-soft)", color: "var(--warning-text)" },
+  tarde:    { background: "rgba(192, 122, 82, 0.12)", color: "var(--primary)" },
+  noche:    { background: "var(--info-soft)", color: "var(--info-text)" },
+};
+
+const SHIFT_ORDER: Record<string, number> = { mediodia: 1, tarde: 2, noche: 3 };
+
+function formatDate(value: string | null) {
+  if (!value) return null;
+  return new Date(value).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
 function formatMoney(value: number) {
@@ -102,7 +116,7 @@ function OrderDetailPanel({ orderId, getClientName }: { orderId: string; getClie
                 {[
                   { label: "Subtotal", value: formatMoney(data.subtotalAmount), strong: false },
                   { label: "Descuento", value: formatMoney(data.discountAmount), strong: false },
-                  { label: "Entrega", value: formatDateTime(data.deliveryDate), strong: false },
+                  { label: "Entrega", value: formatDate(data.deliveryDate) ?? "Sin fecha", strong: false },
                   { label: "Método", value: PAYMENT_METHOD_LABELS[data.paymentMethod] ?? data.paymentMethod, strong: false },
                   { label: "Total", value: formatMoney(data.totalAmount), strong: true },
                 ].map(({ label, value, strong }) => (
@@ -152,15 +166,23 @@ function OrderDetailPanel({ orderId, getClientName }: { orderId: string; getClie
             )}
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {[
-                { label: "Cliente", value: data.customerNameSnapshot || getClientName(data.clientId) },
-                { label: "Entrega", value: formatDateTime(data.deliveryDate) },
-                { label: "Pago", value: `${data.isPaid ? "Pagado" : "Pendiente"} · ${PAYMENT_METHOD_LABELS[data.paymentMethod] ?? data.paymentMethod}` },
-              ].map((item) => (
-                <div key={item.label} className="rounded-lg border px-4 py-2.5 text-xs" style={{ background: "var(--background)", borderColor: "var(--border-soft)", color: "var(--foreground-muted)" }}>
-                  <span className="font-semibold" style={{ color: "var(--foreground-soft)" }}>{item.label}:</span>{" "}{item.value}
+              <div className="rounded-lg border px-4 py-2.5 text-xs" style={{ background: "var(--background)", borderColor: "var(--border-soft)", color: "var(--foreground-muted)" }}>
+                <span className="font-semibold" style={{ color: "var(--foreground-soft)" }}>Cliente:</span>{" "}{data.customerNameSnapshot || getClientName(data.clientId)}
+              </div>
+              <div className="rounded-lg border px-4 py-2.5 text-xs" style={{ background: "var(--background)", borderColor: "var(--border-soft)" }}>
+                <p className="font-semibold" style={{ color: "var(--foreground-soft)" }}>Entrega</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span style={{ color: "var(--foreground-muted)" }}>{formatDate(data.deliveryDate) ?? "Sin fecha"}</span>
+                  {data.deliveryShift && (
+                    <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider" style={SHIFT_STYLE[data.deliveryShift]}>
+                      {SHIFT_LABELS[data.deliveryShift]}
+                    </span>
+                  )}
                 </div>
-              ))}
+              </div>
+              <div className="rounded-lg border px-4 py-2.5 text-xs" style={{ background: "var(--background)", borderColor: "var(--border-soft)", color: "var(--foreground-muted)" }}>
+                <span className="font-semibold" style={{ color: "var(--foreground-soft)" }}>Pago:</span>{" "}{data.isPaid ? "Pagado" : "Pendiente"} · {PAYMENT_METHOD_LABELS[data.paymentMethod] ?? data.paymentMethod}
+              </div>
             </div>
           </div>
         ) : null}
@@ -228,7 +250,11 @@ export function OrdersTable({ selectedOrderId, onEditOrder, onCreateOrder }: { s
         if (sortConfig.key === "delivery") {
           const dateA = a.deliveryDate ? new Date(a.deliveryDate).getTime() : 0;
           const dateB = b.deliveryDate ? new Date(b.deliveryDate).getTime() : 0;
-          return sortConfig.direction === "asc" ? dateA - dateB : dateB - dateA;
+          const diff = sortConfig.direction === "asc" ? dateA - dateB : dateB - dateA;
+          if (diff !== 0) return diff;
+          const shiftA = a.deliveryShift ? (SHIFT_ORDER[a.deliveryShift] ?? 99) : 99;
+          const shiftB = b.deliveryShift ? (SHIFT_ORDER[b.deliveryShift] ?? 99) : 99;
+          return sortConfig.direction === "asc" ? shiftA - shiftB : shiftB - shiftA;
         }
         if (sortConfig.key === "payment") {
           return sortConfig.direction === "asc" ? (a.isPaid ? 1 : 0) - (b.isPaid ? 1 : 0) : (b.isPaid ? 1 : 0) - (a.isPaid ? 1 : 0);
@@ -448,7 +474,18 @@ export function OrdersTable({ selectedOrderId, onEditOrder, onCreateOrder }: { s
                         <p className="mt-0.5 text-xs tabular-nums" style={{ color: "var(--foreground-muted)" }}>{new Date(order.createdAt).toLocaleDateString("es-AR")}</p>
                       </td>
                       <td className="border-b px-5 py-3" style={{ borderColor: "var(--border-soft)" }}>
-                        <span className="text-xs tabular-nums" style={{ color: "var(--foreground-muted)" }}>{formatDateTime(order.deliveryDate)}</span>
+                        {order.deliveryDate ? (
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[13px] font-medium tabular-nums leading-snug" style={{ color: "var(--foreground-soft)" }}>{formatDate(order.deliveryDate)}</span>
+                            {order.deliveryShift ? (
+                              <span className="inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider" style={SHIFT_STYLE[order.deliveryShift]}>
+                                {SHIFT_LABELS[order.deliveryShift]}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-xs" style={{ color: "var(--foreground-faint)" }}>Sin fecha</span>
+                        )}
                       </td>
                       <td className="border-b px-5 py-3" style={{ borderColor: "var(--border-soft)" }}>
                         <div className="flex flex-col gap-1">
