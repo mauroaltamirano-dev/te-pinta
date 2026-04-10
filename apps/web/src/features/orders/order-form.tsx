@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { MdClose, MdAdd, MdRemove } from "react-icons/md";
 
-import type { Order } from "../../services/api/orders.api";
+import type { DeliveryShift, Order } from "../../services/api/orders.api";
 import { useClients } from "../clients/use-clients";
 import { useProducts } from "../products/use-products";
 import { useCreateOrder, useOrderById, useUpdateOrder } from "./use-orders";
@@ -96,8 +96,7 @@ export function OrderForm({
   const [customerAddress, setCustomerAddress] = useState("");
   const [channel, setChannel] = useState<OrderChannel>("whatsapp");
   const [deliveryDate, setDeliveryDate] = useState("");
-  const [hasDeliveryTime, setHasDeliveryTime] = useState(false);
-  const [deliveryTime, setDeliveryTime] = useState("");
+  const [deliveryShift, setDeliveryShift] = useState<DeliveryShift | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [isPaid, setIsPaid] = useState(false);
   const [notes, setNotes] = useState("");
@@ -115,8 +114,7 @@ export function OrderForm({
     setCustomerAddress("");
     setChannel("whatsapp");
     setDeliveryDate("");
-    setHasDeliveryTime(false);
-    setDeliveryTime("");
+    setDeliveryShift(null);
     setPaymentMethod("cash");
     setIsPaid(false);
     setNotes("");
@@ -153,15 +151,10 @@ export function OrderForm({
       const month = String(d.getMonth() + 1).padStart(2, "0");
       const day = String(d.getDate()).padStart(2, "0");
       setDeliveryDate(`${year}-${month}-${day}`);
-      const timeStr = d.toTimeString().slice(0, 5);
-      const hasTime = timeStr !== "00:00";
-      setHasDeliveryTime(hasTime);
-      setDeliveryTime(hasTime ? timeStr : "");
     } else {
       setDeliveryDate("");
-      setHasDeliveryTime(false);
-      setDeliveryTime("");
     }
+    setDeliveryShift(detailQuery.data.deliveryShift ?? null);
     setPaymentMethod(detailQuery.data.paymentMethod);
     setIsPaid(detailQuery.data.isPaid);
     setNotes(detailQuery.data.notes ?? "");
@@ -191,21 +184,14 @@ export function OrderForm({
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const buildDeliveryISO = () => {
-      if (!deliveryDate) return undefined;
-      if (hasDeliveryTime && deliveryTime) {
-        return new Date(`${deliveryDate}T${deliveryTime}:00`).toISOString();
-      }
-      return new Date(`${deliveryDate}T00:00:00`).toISOString();
-    };
-
     const payload = {
       clientId: clientMode === "existing" && clientId ? clientId : undefined,
       customerName: customerName.trim() ? customerName.trim() : undefined,
       customerPhone: customerPhone.trim() ? customerPhone.trim() : undefined,
       customerAddress: customerAddress.trim() ? customerAddress.trim() : undefined,
       channel,
-      deliveryDate: buildDeliveryISO(),
+      deliveryDate: deliveryDate ? new Date(`${deliveryDate}T00:00:00`).toISOString() : undefined,
+      deliveryShift: deliveryShift ?? undefined,
       paymentMethod,
       isPaid,
       notes: notes || undefined,
@@ -226,7 +212,8 @@ export function OrderForm({
             customerName: customerName.trim() ? customerName.trim() : null,
             customerPhone: customerPhone.trim() ? customerPhone.trim() : null,
             customerAddress: customerAddress.trim() ? customerAddress.trim() : null,
-            deliveryDate: buildDeliveryISO() ?? null,
+            deliveryDate: deliveryDate ? new Date(`${deliveryDate}T00:00:00`).toISOString() : null,
+            deliveryShift: deliveryShift,
           },
         },
         { onSuccess: () => onCancelEdit?.() },
@@ -491,33 +478,23 @@ export function OrderForm({
                 onFocus={focusOn}
                 onBlur={focusOff}
               />
-              <label
-                className="flex cursor-pointer items-center gap-2 text-xs"
-                style={{ color: "var(--foreground-muted)" }}
-              >
-                <input
-                  type="checkbox"
-                  checked={hasDeliveryTime}
-                  onChange={(e) => {
-                    setHasDeliveryTime(e.target.checked);
-                    if (!e.target.checked) setDeliveryTime("");
-                  }}
-                  className="h-3.5 w-3.5"
-                />
-                Especificar hora de entrega
-              </label>
-              {hasDeliveryTime && (
-                <input
-                  id="ord-delivery-time"
-                  type="time"
-                  value={deliveryTime}
-                  onChange={(e) => setDeliveryTime(e.target.value)}
-                  className={fieldBase}
-                  style={fieldStyle(isEditing)}
-                  onFocus={focusOn}
-                  onBlur={focusOff}
-                />
-              )}
+              <div className="grid grid-cols-3 gap-1 rounded-xl p-1 border" style={{ background: "var(--background)", borderColor: "var(--border)" }}>
+                {(["mediodia", "tarde", "noche"] as const).map((shift) => (
+                  <button
+                    key={shift}
+                    type="button"
+                    onClick={() => setDeliveryShift(deliveryShift === shift ? null : shift)}
+                    className="rounded-lg py-2 text-sm font-semibold transition capitalize"
+                    style={{
+                      background: deliveryShift === shift ? "var(--surface)" : "transparent",
+                      color: deliveryShift === shift ? "var(--foreground)" : "var(--foreground-muted)",
+                      boxShadow: deliveryShift === shift ? "var(--shadow-app-sm)" : "none",
+                    }}
+                  >
+                    {shift === "mediodia" ? "Mediodía" : shift.charAt(0).toUpperCase() + shift.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-1.5">

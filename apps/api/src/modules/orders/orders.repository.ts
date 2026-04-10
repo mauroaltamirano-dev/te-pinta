@@ -21,6 +21,7 @@ function mapRowToOrder(row: typeof ordersTable.$inferSelect): Order {
     status: row.status as Order["status"],
     channel: row.channel as Order["channel"],
     deliveryDate: row.deliveryDate,
+    deliveryShift: (row.deliveryShift as Order["deliveryShift"]) ?? null,
     paymentMethod: row.paymentMethod as Order["paymentMethod"],
     isPaid: row.isPaid,
     notes: row.notes,
@@ -129,6 +130,7 @@ async findItemsByOrderIds(orderIds: string[]): Promise<OrderItem[]> {
         status: orderData.status,
         channel: orderData.channel,
         deliveryDate: orderData.deliveryDate,
+        deliveryShift: orderData.deliveryShift,
         paymentMethod: orderData.paymentMethod,
         isPaid: orderData.isPaid,
         notes: orderData.notes,
@@ -186,6 +188,7 @@ async findItemsByOrderIds(orderIds: string[]): Promise<OrderItem[]> {
         | "status"
         | "channel"
         | "deliveryDate"
+        | "deliveryShift"
         | "paymentMethod"
         | "isPaid"
         | "notes"
@@ -204,6 +207,7 @@ async findItemsByOrderIds(orderIds: string[]): Promise<OrderItem[]> {
         status: input.status,
         channel: input.channel,
         deliveryDate: input.deliveryDate,
+        deliveryShift: input.deliveryShift,
         paymentMethod: input.paymentMethod,
         isPaid: input.isPaid,
         notes: input.notes,

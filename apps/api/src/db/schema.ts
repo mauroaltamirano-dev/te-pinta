@@ -126,6 +126,7 @@ export const ordersTable = pgTable("orders", {
   status: text("status").notNull(),
   channel: text("channel").notNull(),
   deliveryDate: timestamp("delivery_date", { withTimezone: true }),
+  deliveryShift: text("delivery_shift"),
   paymentMethod: text("payment_method").notNull().default("cash"),
   isPaid: boolean("is_paid").notNull().default(false),
   notes: text("notes"),

@@ -11,6 +11,7 @@ export const ordersMapper = {
       status: order.status,
       channel: order.channel,
       deliveryDate: order.deliveryDate?.toISOString() ?? null,
+      deliveryShift: order.deliveryShift,
       paymentMethod: order.paymentMethod,
       isPaid: order.isPaid,
       notes: order.notes,

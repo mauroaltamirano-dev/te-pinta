@@ -22,6 +22,8 @@ export const orderChannelSchema = z.enum([
 
 export const paymentMethodSchema = z.enum(["cash", "transfer"]);
 
+export const deliveryShiftSchema = z.enum(["mediodia", "tarde", "noche"]);
+
 export const orderItemInputSchema = z.object({
   productId: z.uuid("Product id must be a valid UUID"),
   quantity: z.number().int().positive("Quantity must be greater than 0"),
@@ -34,6 +36,7 @@ export const createOrderSchema = z.object({
   customerAddress: z.string().trim().max(255).optional(),
   channel: orderChannelSchema,
   deliveryDate: z.coerce.date().optional(),
+  deliveryShift: deliveryShiftSchema.optional(),
   paymentMethod: paymentMethodSchema.optional(),
   isPaid: z.boolean().optional(),
   notes: z.string().trim().optional(),
@@ -52,6 +55,7 @@ export const updateOrderSchema = z
     customerAddress: z.string().trim().max(255).nullable().optional(),
     channel: orderChannelSchema.optional(),
     deliveryDate: z.coerce.date().nullable().optional(),
+    deliveryShift: deliveryShiftSchema.nullable().optional(),
     paymentMethod: paymentMethodSchema.optional(),
     isPaid: z.boolean().optional(),
     notes: z.string().trim().optional(),

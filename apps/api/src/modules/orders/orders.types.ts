@@ -2,6 +2,7 @@ import type { z } from "zod";
 
 import type {
   createOrderSchema,
+  deliveryShiftSchema,
   orderChannelSchema,
   orderStatusSchema,
   paymentMethodSchema,
@@ -12,6 +13,7 @@ import type {
 export type OrderStatus = z.infer<typeof orderStatusSchema>;
 export type OrderChannel = z.infer<typeof orderChannelSchema>;
 export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
+export type DeliveryShift = z.infer<typeof deliveryShiftSchema>;
 
 export type Order = {
   id: string;
@@ -22,6 +24,7 @@ export type Order = {
   status: OrderStatus;
   channel: OrderChannel;
   deliveryDate: Date | null;
+  deliveryShift: DeliveryShift | null;
   paymentMethod: PaymentMethod;
   isPaid: boolean;
   notes: string | null;

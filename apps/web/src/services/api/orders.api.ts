@@ -15,6 +15,7 @@ export type OrderChannel =
   | "other";
 
 export type PaymentMethod = "cash" | "transfer";
+export type DeliveryShift = "mediodia" | "tarde" | "noche";
 
 export type OrderItem = {
   id: string;
@@ -38,6 +39,7 @@ export type Order = {
   status: OrderStatus;
   channel: OrderChannel;
   deliveryDate: string | null;
+  deliveryShift: DeliveryShift | null;
   paymentMethod: PaymentMethod;
   isPaid: boolean;
   notes: string | null;
@@ -74,6 +76,7 @@ export function createOrder(data: {
   customerAddress?: string;
   channel: OrderChannel;
   deliveryDate?: string;
+  deliveryShift?: DeliveryShift;
   paymentMethod?: PaymentMethod;
   isPaid?: boolean;
   notes?: string;
@@ -108,6 +111,7 @@ export function updateOrder(
     customerAddress?: string | null;
     channel?: OrderChannel;
     deliveryDate?: string | null;
+    deliveryShift?: DeliveryShift | null;
     paymentMethod?: PaymentMethod;
     isPaid?: boolean;
     notes?: string;
